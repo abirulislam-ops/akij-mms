@@ -9,6 +9,12 @@ import { validateKpiActuals, commitKpiActuals, kpiActualsTemplate } from "./uplo
 import { getFreshness } from "./freshness.js";
 import { getSbuHub } from "./hub.js";
 import { getCoverage } from "./coverage.js";
+import { getMarketOverview, getMarketDetail } from "./market.js";
+import { getBudgetOverview, getBudgetDetail } from "./budget.js";
+import { getStrategy } from "./strategy.js";
+import { getBrandHealth } from "./health.js";
+import { getFourPOverview, getFourPDetail } from "./fourp.js";
+import { getPortfolio } from "./analytics.js";
 
 const app = new Hono<{ Variables: AppVariables }>();
 
@@ -39,6 +45,65 @@ app.get("/api/roles", requireAuth(), requireRole("SPA"), async (c) => {
 app.get("/api/cockpit", requireAuth(), async (c) => {
   const rows = await getCockpit();
   return c.json({ sbus: rows });
+});
+
+// Portfolio (Executive Cockpit): scores + market reconciliation + budget in one payload.
+app.get("/api/analytics", requireAuth(), async (c) => {
+  return c.json(await getPortfolio());
+});
+
+// Market & Competition: group overview + SBU detail.
+app.get("/api/market", requireAuth(), async (c) => {
+  return c.json({ sbus: await getMarketOverview() });
+});
+app.get("/api/market/:code", requireAuth(), async (c) => {
+  const code = c.req.param("code");
+  if (!code) return c.json({ error: "Not found" }, 404);
+  const detail = await getMarketDetail(code);
+  if (!detail) return c.json({ error: "Not found" }, 404);
+  return c.json(detail);
+});
+
+// Budget & ROMI: group league table + SBU detail.
+app.get("/api/budget", requireAuth(), async (c) => {
+  return c.json(await getBudgetOverview());
+});
+app.get("/api/budget/:code", requireAuth(), async (c) => {
+  const code = c.req.param("code");
+  if (!code) return c.json({ error: "Not found" }, 404);
+  const detail = await getBudgetDetail(code);
+  if (!detail) return c.json({ error: "Not found" }, 404);
+  return c.json(detail);
+});
+
+// Strategy & Targets (per SBU).
+app.get("/api/strategy/:code", requireAuth(), async (c) => {
+  const code = c.req.param("code");
+  if (!code) return c.json({ error: "Not found" }, 404);
+  const detail = await getStrategy(code);
+  if (!detail) return c.json({ error: "Not found" }, 404);
+  return c.json(detail);
+});
+
+// Brand Health & Research (per SBU).
+app.get("/api/health/:code", requireAuth(), async (c) => {
+  const code = c.req.param("code");
+  if (!code) return c.json({ error: "Not found" }, 404);
+  const detail = await getBrandHealth(code);
+  if (!detail) return c.json({ error: "Not found" }, 404);
+  return c.json(detail);
+});
+
+// 4P Studio: cross-SBU overview + SBU detail.
+app.get("/api/fourp", requireAuth(), async (c) => {
+  return c.json(await getFourPOverview());
+});
+app.get("/api/fourp/:code", requireAuth(), async (c) => {
+  const code = c.req.param("code");
+  if (!code) return c.json({ error: "Not found" }, 404);
+  const detail = await getFourPDetail(code);
+  if (!detail) return c.json({ error: "Not found" }, 404);
+  return c.json(detail);
 });
 
 // SBU detail: indices + KPI rows.

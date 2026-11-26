@@ -15,6 +15,7 @@
     "seed": "tsx seed/index.ts",
     "seed:sbus": "tsx seed/sbus.ts",
     "seed:campaigns": "tsx seed/campaigns.ts",
+    "seed:market": "tsx seed/market.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

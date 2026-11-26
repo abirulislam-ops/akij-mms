@@ -5,6 +5,11 @@ import SignIn from "./pages/SignIn";
 import Cockpit from "./pages/Cockpit";
 import Hub from "./pages/Hub";
 import Coverage from "./pages/Coverage";
+import MarketOverview, { MarketDetail } from "./pages/Market";
+import Budget from "./pages/Budget";
+import FourP from "./pages/FourP";
+import Health from "./pages/Health";
+import Strategy from "./pages/Strategy";
 
 export default function App() {
   const [user, setUser] = useState<SessionUser | null | undefined>(undefined);
@@ -28,6 +33,12 @@ export default function App() {
         <Route path="/" element={<Cockpit />} />
         <Route path="/sbu/:code" element={<Hub />} />
         <Route path="/coverage" element={<Coverage />} />
+        <Route path="/market" element={<MarketOverview />} />
+        <Route path="/market/:code" element={<MarketDetail />} />
+        <Route path="/budget" element={<Budget />} />
+        <Route path="/fourp" element={<FourP />} />
+        <Route path="/health/:code" element={<Health />} />
+        <Route path="/strategy/:code" element={<Strategy />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>
@@ -41,9 +52,14 @@ function Topbar({ user, onSignOut }: { user: SessionUser; onSignOut: () => void 
       <span className="brand">
         AKIJ <b>Resource</b> <span style={{ fontWeight: 400, opacity: 0.7 }}>· MMS</span>
       </span>
-      <nav style={{ display: "flex", gap: 8 }}>
-        <Link to="/" style={{ color: loc.pathname === "/" ? "#c9a227" : "#fff", textDecoration: "none", fontWeight: 700 }}>Cockpit</Link>
-        <Link to="/coverage" style={{ color: loc.pathname === "/coverage" ? "#c9a227" : "#fff", textDecoration: "none", fontWeight: 700 }}>Coverage</Link>
+      <nav style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <NavLink to="/" active={loc.pathname === "/"} label="Cockpit" />
+        <NavLink to="/market" active={loc.pathname.startsWith("/market")} label="Market" />
+        <NavLink to="/budget" active={loc.pathname === "/budget"} label="Budget" />
+        <NavLink to="/fourp" active={loc.pathname === "/fourp"} label="4P" />
+        <NavLink to="/health/ACCL" active={loc.pathname.startsWith("/health")} label="Health" />
+        <NavLink to="/strategy/ACCL" active={loc.pathname.startsWith("/strategy")} label="Strategy" />
+        <NavLink to="/coverage" active={loc.pathname === "/coverage"} label="Coverage" />
       </nav>
       <span className="spacer" />
       <span style={{ fontSize: 12, opacity: 0.8 }}>{user.email}</span>
@@ -51,5 +67,13 @@ function Topbar({ user, onSignOut }: { user: SessionUser; onSignOut: () => void 
         Sign out
       </button>
     </div>
+  );
+}
+
+function NavLink({ to, active, label }: { to: string; active: boolean; label: string }) {
+  return (
+    <Link to={to} style={{ color: active ? "#c9a227" : "#fff", textDecoration: "none", fontWeight: 700, fontSize: 13 }}>
+      {label}
+    </Link>
   );
 }

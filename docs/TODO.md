@@ -22,6 +22,13 @@
 - [x] Coverage table (SBU × module × data status) + approval (estimate-approval workflow)
 
 ## Phase 3 — Executive Cockpit, Market & Competition, Budget & ROMI, Brand Health, 4P Studio, Strategy & Targets
+- [x] Executive Cockpit: portfolio bubble matrix + strategy-flag panel + share/budget in table
+- [x] Market & Competition: group overview (share/rank/market-size/reconciliation/SOV-SOM) + SBU detail (share tracker + revenue↔share bridge)
+- [x] Budget & ROMI: league table (plan vs campaign-spend, ROMI, intensity) + group totals
+- [x] Brand Health & Research: awareness→advocacy funnel + NPS (per SBU)
+- [x] 4P Studio: cross-SBU scorecard (score + coverage per P)
+- [x] Strategy & Targets: revenue glide path + KPI target coverage + weight proposals (per SBU)
+- [ ] Seed market_size (implied market size + growth assumption) ✅ done via seed:market
 
 ## Phase 4 — Decision Support Center (alerts, Decision Cards, what-if, decision log), Reports (MD pack PDF), ERP/MCP scheduled sync
 
