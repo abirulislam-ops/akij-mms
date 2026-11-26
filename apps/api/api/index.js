@@ -7,7 +7,7 @@ var __export = (target, all) => {
 // src/index.ts
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { and as and11, eq as eq14, inArray as inArray9 } from "drizzle-orm";
+import { and as and12, eq as eq15, inArray as inArray9 } from "drizzle-orm";
 
 // src/db.ts
 import { config } from "dotenv";
@@ -25,6 +25,8 @@ __export(src_exports, {
   budgetPlan: () => budgetPlan,
   campaign: () => campaign,
   campaignMetric: () => campaignMetric,
+  competitorActivity: () => competitorActivity,
+  competitorProfile: () => competitorProfile,
   dataGap: () => dataGap,
   decision: () => decision,
   dimension: () => dimension,
@@ -548,6 +550,47 @@ var uploadBatch = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
   }
 );
+var competitorProfile = pgTable(
+  "competitor_profile",
+  {
+    id: serial("id").primaryKey(),
+    brandId: integer("brand_id").notNull().references(() => brand.id),
+    positioning: text("positioning"),
+    threatLevel: text("threat_level").$type().notNull().default("med"),
+    priceIndex: doublePrecision("price_index"),
+    // vs category avg = 100
+    strengths: text("strengths"),
+    weaknesses: text("weaknesses"),
+    updatedBy: text("updated_by"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (t) => [uniqueIndex("competitor_profile_brand_idx").on(t.brandId)]
+);
+var competitorActivity = pgTable(
+  "competitor_activity",
+  {
+    id: serial("id").primaryKey(),
+    sbuId: integer("sbu_id").notNull().references(() => sbu.id),
+    brandId: integer("brand_id").notNull().references(() => brand.id),
+    activityDate: text("activity_date").notNull(),
+    // YYYY-MM-DD
+    activityType: text("activity_type").$type().notNull(),
+    channel: text("channel"),
+    spend: numeric("spend", { precision: 18, scale: 2 }),
+    reach: doublePrecision("reach"),
+    // 0..1
+    priceChangePct: doublePrecision("price_change_pct"),
+    // e.g. -5
+    message: text("message"),
+    notes: text("notes"),
+    createdBy: text("created_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (t) => [
+    index("competitor_activity_sbu_idx").on(t.sbuId),
+    index("competitor_activity_brand_idx").on(t.brandId)
+  ]
+);
 
 // src/db.ts
 config({ path: ".env.local" });
@@ -756,6 +799,97 @@ function reconcile(input) {
 function excessSov(sov, som) {
   return sov - som;
 }
+
+// ../../packages/calc/src/competition.ts
+var BASE = {
+  price_cut: 0.62,
+  promotion: 0.46,
+  tvc: 0.4,
+  digital: 0.3,
+  dealer_scheme: 0.52,
+  new_product: 0.56,
+  other: 0.25
+};
+var LABEL = {
+  price_cut: "price cut",
+  promotion: "consumer promotion",
+  tvc: "TV / mass-media campaign",
+  digital: "digital / social push",
+  dealer_scheme: "dealer / trade scheme",
+  new_product: "new product / SKU",
+  other: "market activity"
+};
+function clamp(v, lo, hi) {
+  return Math.max(lo, Math.min(hi, v));
+}
+function r2(v) {
+  return Math.round(v * 100) / 100;
+}
+function threatLevel(score) {
+  return score >= 65 ? "high" : score >= 40 ? "med" : "low";
+}
+function assessActivity(i) {
+  const type = i.activityType in BASE ? i.activityType : "other";
+  const base = BASE[type];
+  const spendShare = i.spend != null && i.categorySpend ? clamp(i.spend / i.categorySpend, 0, 1) : 0.15;
+  const reachF = i.reach == null ? 0.5 : clamp(i.reach, 0, 1);
+  const priceF = i.priceChangePct == null ? 0 : clamp(Math.abs(i.priceChangePct) / 10, 0, 1);
+  const intensity = clamp(base * 0.5 + spendShare * 0.2 + reachF * 0.15 + priceF * 0.15, 0, 1);
+  const threatScore = Math.round(intensity * 100);
+  const ourShareDeltaPp = -r2(intensity * 0.12 * i.ourShare);
+  const theirShareDeltaPp = r2(intensity * 0.1 * i.ourShare);
+  const implicationsUs = [];
+  const implicationsThem = [];
+  let recommendedAction = "Monitor; re-measure next wave.";
+  switch (type) {
+    case "price_cut":
+      implicationsUs.push("Downward price pressure at the counter; margin and price-premium at risk.");
+      implicationsThem.push("Short-term volume grab but margin erosion and premium-perception risk.");
+      recommendedAction = "Do NOT match the price. Defend on value/quality proof and dealer loyalty; protect the premium.";
+      break;
+    case "promotion":
+      implicationsUs.push("Trial/switch spike; watch repeat and discount dependency.");
+      implicationsThem.push("Margin-funded share; often decays after the promo.");
+      recommendedAction = "Counter with value + availability, not a discount war; reinforce repeat.";
+      break;
+    case "tvc":
+      implicationsUs.push("Awareness/SOV pressure; TOMA and consideration may dip.");
+      implicationsThem.push("Awareness gain; conversion depends on their distribution.");
+      recommendedAction = "Protect SOV in core segments; pair our ATL with trade/distribution to convert.";
+      break;
+    case "digital":
+      implicationsUs.push("Share-of-search and digital SOV pressure; lead flow risk.");
+      implicationsThem.push("Cheap reach; weak if they lack conversion/CRM.");
+      recommendedAction = "Raise digital performance and search visibility; defend conversion.";
+      break;
+    case "dealer_scheme":
+      implicationsUs.push("Dealer/retailer push and shelf share risk in covered territories.");
+      implicationsThem.push("Channel loyalty gain, but costly and reversible.");
+      recommendedAction = "Protect dealer loyalty (terms, service, availability); target contested territories.";
+      break;
+    case "new_product":
+      implicationsUs.push("New segment/SKU encroachment; watch the specific price band.");
+      implicationsThem.push("Portfolio expansion; needs distribution to scale.");
+      recommendedAction = "Assess overlap; respond with targeted NPD or a differentiated claim, not broad cuts.";
+      break;
+    default:
+      implicationsUs.push("General competitive activity; limited direct impact assumed.");
+      implicationsThem.push("Unclear impact without more detail.");
+  }
+  return {
+    threatScore,
+    threatLevel: threatLevel(threatScore),
+    ourShareDeltaPp,
+    theirShareDeltaPp,
+    implicationsUs,
+    implicationsThem,
+    recommendedAction
+  };
+}
+function competitionHHI(sharesPct) {
+  return Math.round(sharesPct.reduce((a, s) => a + Math.pow(s, 2), 0));
+}
+var ACTIVITY_LABEL = LABEL;
 
 // src/scores.ts
 var BASELINE = "FY25-26";
@@ -1469,28 +1603,206 @@ async function whatIfShare(code, brandGrowthPct) {
   };
 }
 
-// src/budget.ts
-import { and as and6, eq as eq7, inArray as inArray5 } from "drizzle-orm";
+// src/competition.ts
+import { eq as eq7, and as and6 } from "drizzle-orm";
 var BASELINE5 = "FY25-26";
-async function getBudgetOverview() {
+async function loadSbu(code) {
+  const [sbu2] = await db.select().from(src_exports.sbu).where(eq7(src_exports.sbu.code, code)).limit(1);
+  return sbu2 ?? null;
+}
+async function loadRegistry(sbuId) {
+  const brands = await db.select().from(src_exports.brand).where(eq7(src_exports.brand.sbuId, sbuId));
+  const shares = await db.select().from(src_exports.marketShare).where(eq7(src_exports.marketShare.periodId, BASELINE5));
+  const profileRows = await db.select().from(src_exports.competitorProfile);
+  const profileByBrand = new Map(profileRows.map((p) => [p.brandId, p]));
+  const shareByBrand = new Map(shares.map((s) => [s.brandId, s]));
+  const rows = brands.map((b) => {
+    const sh = shareByBrand.get(b.id);
+    const pr = profileByBrand.get(b.id);
+    return {
+      brandId: b.id,
+      name: b.name,
+      own: b.isOwn,
+      share: sh?.valueShare != null ? Number(sh.valueShare) : null,
+      isEstimate: sh?.isEstimate ?? true,
+      positioning: pr?.positioning ?? null,
+      threatLevel: pr?.threatLevel ?? "med",
+      priceIndex: pr?.priceIndex != null ? Number(pr.priceIndex) : null,
+      strengths: pr?.strengths ?? null,
+      weaknesses: pr?.weaknesses ?? null
+    };
+  });
+  return { rows, brands, shareByBrand };
+}
+async function getCompetitionOverview() {
   const sbus = await db.select().from(src_exports.sbu).where(eq7(src_exports.sbu.active, true));
+  const allActivities = await db.select().from(src_exports.competitorActivity);
+  const out = [];
+  for (const s of sbus) {
+    const { rows } = await loadRegistry(s.id);
+    const own = rows.find((r) => r.own);
+    const comps = rows.filter((r) => !r.own);
+    const shares = rows.map((r) => r.share ?? 0).filter((v) => v > 0);
+    const sorted = [...rows].filter((r) => r.share != null).sort((a, b) => (b.share ?? 0) - (a.share ?? 0));
+    const rank = own && own.share != null && comps.some((c) => c.share != null) ? sorted.findIndex((r) => r.own) + 1 : null;
+    const threatScore = { low: 1, med: 2, high: 3 };
+    const worst = comps.reduce((m, c) => Math.max(m, threatScore[c.threatLevel]), 0);
+    const threat = worst === 3 ? "high" : worst === 2 ? "med" : "low";
+    const acts = allActivities.filter((a) => a.sbuId === s.id);
+    out.push({
+      code: s.code,
+      name: s.name,
+      category: s.category,
+      ownShare: own?.share ?? null,
+      ownShareEstimate: own?.isEstimate ?? true,
+      rank,
+      competitorCount: comps.length,
+      threat,
+      activityCount: acts.length,
+      latestActivity: acts.length ? acts.map((a) => a.activityDate).sort().slice(-1)[0] : null,
+      hhi: shares.length ? competitionHHI(shares) : null
+    });
+  }
+  return out;
+}
+async function getCompetitionDetail(code) {
+  const sbu2 = await loadSbu(code);
+  if (!sbu2) return null;
+  const { rows } = await loadRegistry(sbu2.id);
+  const own = rows.find((r) => r.own);
+  const ourShare = own?.share ?? 0;
+  const acts = await db.select().from(src_exports.competitorActivity).where(eq7(src_exports.competitorActivity.sbuId, sbu2.id));
+  const brandName = new Map(rows.map((r) => [r.brandId, r.name]));
+  const brandShare = new Map(rows.map((r) => [r.brandId, r.share ?? null]));
+  const activities = acts.sort((a, b) => a.activityDate < b.activityDate ? 1 : -1).map((a) => {
+    const cshare = brandShare.get(a.brandId) ?? (ourShare ? ourShare * 0.8 : 1);
+    const impact = assessActivity({
+      activityType: a.activityType,
+      ourShare,
+      competitorShare: cshare,
+      spend: a.spend != null ? Number(a.spend) : null,
+      reach: a.reach != null ? Number(a.reach) : null,
+      priceChangePct: a.priceChangePct != null ? Number(a.priceChangePct) : null
+    });
+    return {
+      id: a.id,
+      brandId: a.brandId,
+      competitor: brandName.get(a.brandId) ?? "Competitor",
+      competitorShare: cshare,
+      activityDate: a.activityDate,
+      activityType: a.activityType,
+      activityLabel: ACTIVITY_LABEL[a.activityType] ?? a.activityType,
+      channel: a.channel,
+      spend: a.spend != null ? Number(a.spend) : null,
+      reach: a.reach != null ? Number(a.reach) : null,
+      priceChangePct: a.priceChangePct != null ? Number(a.priceChangePct) : null,
+      message: a.message,
+      notes: a.notes,
+      impact
+    };
+  });
+  const aggregate = {
+    maxThreatScore: activities.reduce((m, a) => Math.max(m, a.impact.threatScore), 0),
+    projectedOurDeltaPp: Math.round(activities.reduce((s, a) => s + a.impact.ourShareDeltaPp, 0) * 100) / 100,
+    projectedTheirDeltaPp: Math.round(activities.reduce((s, a) => s + a.impact.theirShareDeltaPp, 0) * 100) / 100
+  };
+  return {
+    sbu: { code: sbu2.code, name: sbu2.name, category: sbu2.category },
+    ownShare: own?.share ?? null,
+    registry: rows.sort((a, b) => (b.own ? 1 : 0) - (a.own ? 1 : 0) || (b.share ?? 0) - (a.share ?? 0)),
+    hhi: competitionHHI(rows.map((r) => r.share ?? 0).filter((v) => v > 0)),
+    activities,
+    aggregate
+  };
+}
+async function addCompetitorActivity(code, body, byUser) {
+  const sbu2 = await loadSbu(code);
+  if (!sbu2) return { error: "Not found" };
+  const [brand2] = await db.select().from(src_exports.brand).where(and6(eq7(src_exports.brand.id, body.brandId), eq7(src_exports.brand.sbuId, sbu2.id))).limit(1);
+  if (!brand2) return { error: "Competitor brand not found for this SBU" };
+  const [row] = await db.insert(src_exports.competitorActivity).values({
+    sbuId: sbu2.id,
+    brandId: body.brandId,
+    activityDate: body.activityDate,
+    activityType: body.activityType,
+    channel: body.channel,
+    spend: body.spend != null ? String(body.spend) : null,
+    reach: body.reach,
+    priceChangePct: body.priceChangePct,
+    message: body.message,
+    notes: body.notes,
+    createdBy: byUser
+  }).returning({ id: src_exports.competitorActivity.id });
+  await db.insert(src_exports.auditLog).values({
+    entity: "competitor_activity",
+    entityId: String(row.id),
+    action: "create",
+    before: null,
+    after: { sbu: code, brandId: body.brandId, type: body.activityType },
+    byUser
+  });
+  return { id: row.id };
+}
+async function upsertCompetitorProfile(code, body, byUser) {
+  const sbu2 = await loadSbu(code);
+  if (!sbu2) return { error: "Not found" };
+  const [brand2] = await db.select().from(src_exports.brand).where(and6(eq7(src_exports.brand.id, body.brandId), eq7(src_exports.brand.sbuId, sbu2.id))).limit(1);
+  if (!brand2) return { error: "Competitor brand not found for this SBU" };
+  const existing = await db.select().from(src_exports.competitorProfile).where(eq7(src_exports.competitorProfile.brandId, body.brandId)).limit(1);
+  if (existing.length) {
+    await db.update(src_exports.competitorProfile).set({
+      positioning: body.positioning,
+      threatLevel: body.threatLevel ?? existing[0].threatLevel,
+      priceIndex: body.priceIndex ?? existing[0].priceIndex,
+      strengths: body.strengths,
+      weaknesses: body.weaknesses,
+      updatedBy: byUser,
+      updatedAt: /* @__PURE__ */ new Date()
+    }).where(eq7(src_exports.competitorProfile.brandId, body.brandId));
+  } else {
+    await db.insert(src_exports.competitorProfile).values({
+      brandId: body.brandId,
+      positioning: body.positioning,
+      threatLevel: body.threatLevel ?? "med",
+      priceIndex: body.priceIndex,
+      strengths: body.strengths,
+      weaknesses: body.weaknesses,
+      updatedBy: byUser
+    });
+  }
+  await db.insert(src_exports.auditLog).values({
+    entity: "competitor_profile",
+    entityId: String(body.brandId),
+    action: "upsert",
+    before: null,
+    after: { sbu: code, threatLevel: body.threatLevel },
+    byUser
+  });
+  return { ok: true };
+}
+
+// src/budget.ts
+import { and as and7, eq as eq8, inArray as inArray5 } from "drizzle-orm";
+var BASELINE6 = "FY25-26";
+async function getBudgetOverview() {
+  const sbus = await db.select().from(src_exports.sbu).where(eq8(src_exports.sbu.active, true));
   const budgets = await db.select().from(src_exports.budgetPlan);
   const budgetBySbu = /* @__PURE__ */ new Map();
   for (const b of budgets) {
     if (!budgetBySbu.has(b.sbuId) || b.channel === "total") budgetBySbu.set(b.sbuId, b);
   }
-  const campaigns = await db.select().from(src_exports.campaign).where(eq7(src_exports.campaign.isCompetitor, false));
+  const campaigns = await db.select().from(src_exports.campaign).where(eq8(src_exports.campaign.isCompetitor, false));
   const spendBySbu = /* @__PURE__ */ new Map();
   for (const c of campaigns) {
     const v = c.spendActual != null ? Number(c.spendActual) : 0;
     spendBySbu.set(c.sbuId, (spendBySbu.get(c.sbuId) ?? 0) + v);
   }
-  const revs = await db.select().from(src_exports.revenueActual).where(eq7(src_exports.revenueActual.periodId, BASELINE5));
+  const revs = await db.select().from(src_exports.revenueActual).where(eq8(src_exports.revenueActual.periodId, BASELINE6));
   const revBySbu = new Map(revs.map((r) => [r.sbuId, Number(r.value)]));
-  const [romiDef] = await db.select().from(src_exports.kpiDefinition).where(eq7(src_exports.kpiDefinition.code, "romi"));
-  const romiKpis = romiDef ? await db.select().from(src_exports.sbuKpi).where(and6(eq7(src_exports.sbuKpi.kpiId, romiDef.id), eq7(src_exports.sbuKpi.active, true))) : [];
+  const [romiDef] = await db.select().from(src_exports.kpiDefinition).where(eq8(src_exports.kpiDefinition.code, "romi"));
+  const romiKpis = romiDef ? await db.select().from(src_exports.sbuKpi).where(and7(eq8(src_exports.sbuKpi.kpiId, romiDef.id), eq8(src_exports.sbuKpi.active, true))) : [];
   const romiKpiBySbu = new Map(romiKpis.map((k) => [k.sbuId, k.id]));
-  const romiActuals = romiKpis.length ? await db.select().from(src_exports.kpiActual).where(and6(inArray5(src_exports.kpiActual.sbuKpiId, romiKpis.map((k) => k.id)), eq7(src_exports.kpiActual.periodId, BASELINE5))) : [];
+  const romiActuals = romiKpis.length ? await db.select().from(src_exports.kpiActual).where(and7(inArray5(src_exports.kpiActual.sbuKpiId, romiKpis.map((k) => k.id)), eq8(src_exports.kpiActual.periodId, BASELINE6))) : [];
   const romiBySbuKpi = new Map(romiActuals.map((a) => [a.sbuKpiId, a]));
   const rows = sbus.map((s) => {
     const budget = budgetBySbu.get(s.id);
@@ -1516,10 +1828,10 @@ async function getBudgetOverview() {
   return { rows, totalBudget, totalSpend };
 }
 async function getBudgetDetail(code) {
-  const [sbu2] = await db.select().from(src_exports.sbu).where(eq7(src_exports.sbu.code, code));
+  const [sbu2] = await db.select().from(src_exports.sbu).where(eq8(src_exports.sbu.code, code));
   if (!sbu2) return null;
-  const budgets = await db.select().from(src_exports.budgetPlan).where(eq7(src_exports.budgetPlan.sbuId, sbu2.id));
-  const campaigns = await db.select().from(src_exports.campaign).where(and6(eq7(src_exports.campaign.sbuId, sbu2.id), eq7(src_exports.campaign.isCompetitor, false)));
+  const budgets = await db.select().from(src_exports.budgetPlan).where(eq8(src_exports.budgetPlan.sbuId, sbu2.id));
+  const campaigns = await db.select().from(src_exports.campaign).where(and7(eq8(src_exports.campaign.sbuId, sbu2.id), eq8(src_exports.campaign.isCompetitor, false)));
   const online = campaigns.filter((c) => c.mode === "online");
   const offline = campaigns.filter((c) => c.mode === "offline");
   const onlineSpend = online.reduce((a, c) => a + (c.spendActual != null ? Number(c.spendActual) : 0), 0);
@@ -1532,34 +1844,34 @@ async function getBudgetDetail(code) {
 }
 
 // src/strategy.ts
-import { and as and7, eq as eq8, inArray as inArray6 } from "drizzle-orm";
-var BASELINE6 = "FY25-26";
+import { and as and8, eq as eq9, inArray as inArray6 } from "drizzle-orm";
+var BASELINE7 = "FY25-26";
 var FYS2 = ["FY26-27", "FY27-28", "FY28-29", "FY29-30", "FY30-31"];
 async function getStrategy(code) {
-  const [sbu2] = await db.select().from(src_exports.sbu).where(eq8(src_exports.sbu.code, code));
+  const [sbu2] = await db.select().from(src_exports.sbu).where(eq9(src_exports.sbu.code, code));
   if (!sbu2) return null;
-  const [revBase] = await db.select().from(src_exports.revenueActual).where(and7(eq8(src_exports.revenueActual.sbuId, sbu2.id), eq8(src_exports.revenueActual.periodId, BASELINE6)));
-  const revTargets = await db.select().from(src_exports.revenueTarget).where(and7(eq8(src_exports.revenueTarget.sbuId, sbu2.id), inArray6(src_exports.revenueTarget.periodId, FYS2)));
+  const [revBase] = await db.select().from(src_exports.revenueActual).where(and8(eq9(src_exports.revenueActual.sbuId, sbu2.id), eq9(src_exports.revenueActual.periodId, BASELINE7)));
+  const revTargets = await db.select().from(src_exports.revenueTarget).where(and8(eq9(src_exports.revenueTarget.sbuId, sbu2.id), inArray6(src_exports.revenueTarget.periodId, FYS2)));
   const revTargetByPeriod = new Map(revTargets.map((t) => [t.periodId, t]));
   const revenue = {
     base: revBase ? Number(revBase.value) : null,
     targets: FYS2.map((fy) => ({ period: fy, value: revTargetByPeriod.get(fy) ? Number(revTargetByPeriod.get(fy).value) : null, status: revTargetByPeriod.get(fy)?.status ?? null }))
   };
-  const sbuKpis = await db.select().from(src_exports.sbuKpi).where(and7(eq8(src_exports.sbuKpi.sbuId, sbu2.id), eq8(src_exports.sbuKpi.active, true)));
+  const sbuKpis = await db.select().from(src_exports.sbuKpi).where(and8(eq9(src_exports.sbuKpi.sbuId, sbu2.id), eq9(src_exports.sbuKpi.active, true)));
   const kpiDefs = await db.select().from(src_exports.kpiDefinition).where(inArray6(src_exports.kpiDefinition.id, sbuKpis.map((k) => k.kpiId)));
   const defById = new Map(kpiDefs.map((d) => [d.id, d]));
   const dims = await db.select().from(src_exports.dimension);
   const sbuKpiIds = sbuKpis.map((k) => k.id);
-  const targets = sbuKpiIds.length ? await db.select().from(src_exports.kpiTarget).where(and7(inArray6(src_exports.kpiTarget.sbuKpiId, sbuKpiIds), eq8(src_exports.kpiTarget.periodId, FYS2[0]))) : [];
+  const targets = sbuKpiIds.length ? await db.select().from(src_exports.kpiTarget).where(and8(inArray6(src_exports.kpiTarget.sbuKpiId, sbuKpiIds), eq9(src_exports.kpiTarget.periodId, FYS2[0]))) : [];
   const targetBySbuKpi = new Map(targets.map((t) => [t.sbuKpiId, t]));
   const dimSummary = dims.sort((a, b) => a.sortOrder - b.sortOrder).map((dim) => {
     const inDim = sbuKpis.filter((k) => defById.get(k.kpiId)?.dimensionId === dim.id);
     const withTarget = inDim.filter((k) => targetBySbuKpi.has(k.id)).length;
     return { id: dim.id, name: dim.name, weight: dim.weight, kpiCount: inDim.length, withTarget, approved: withTarget };
   });
-  const weightSets = await db.select().from(src_exports.weightSet).where(eq8(src_exports.weightSet.sbuId, sbu2.id));
+  const weightSets = await db.select().from(src_exports.weightSet).where(eq9(src_exports.weightSet.sbuId, sbu2.id));
   const weightProposals = weightSets.map((w) => ({ version: w.version, status: w.status, weights: w.weights, proposedBy: w.proposedBy, approvedBy: w.approvedBy }));
-  const strategies = await db.select().from(src_exports.strategy).where(eq8(src_exports.strategy.sbuId, sbu2.id));
+  const strategies = await db.select().from(src_exports.strategy).where(eq9(src_exports.strategy.sbuId, sbu2.id));
   const strategyIds = strategies.map((s) => s.id);
   const objectives = strategyIds.length ? await db.select().from(src_exports.strategicObjective).where(inArray6(src_exports.strategicObjective.strategyId, strategyIds)) : [];
   const objectivesOut = objectives.map((o) => ({ title: o.title, detail: o.detail, target: o.numericTarget != null ? Number(o.numericTarget) : null, unit: o.unit }));
@@ -1573,8 +1885,8 @@ async function getStrategy(code) {
 }
 
 // src/health.ts
-import { and as and8, eq as eq9, inArray as inArray7 } from "drizzle-orm";
-var BASELINE7 = "FY25-26";
+import { and as and9, eq as eq10, inArray as inArray7 } from "drizzle-orm";
+var BASELINE8 = "FY25-26";
 var FUNNEL = [
   { code: "aided_awareness", label: "Awareness" },
   { code: "consideration", label: "Consideration" },
@@ -1583,14 +1895,14 @@ var FUNNEL = [
   { code: "reco", label: "Advocacy" }
 ];
 async function getBrandHealth(code) {
-  const [sbu2] = await db.select().from(src_exports.sbu).where(eq9(src_exports.sbu.code, code));
+  const [sbu2] = await db.select().from(src_exports.sbu).where(eq10(src_exports.sbu.code, code));
   if (!sbu2) return null;
   const kpiDefs = await db.select().from(src_exports.kpiDefinition).where(inArray7(src_exports.kpiDefinition.code, [...FUNNEL.map((f) => f.code), "nps"]));
   const defIdByCode = new Map(kpiDefs.map((d) => [d.code, d]));
-  const sbuKpis = await db.select().from(src_exports.sbuKpi).where(and8(eq9(src_exports.sbuKpi.sbuId, sbu2.id), eq9(src_exports.sbuKpi.active, true)));
+  const sbuKpis = await db.select().from(src_exports.sbuKpi).where(and9(eq10(src_exports.sbuKpi.sbuId, sbu2.id), eq10(src_exports.sbuKpi.active, true)));
   const sbuKpiByKpiId = new Map(sbuKpis.map((k) => [k.kpiId, k]));
   const sbuKpiIds = sbuKpis.map((k) => k.id);
-  const actuals = sbuKpiIds.length ? await db.select().from(src_exports.kpiActual).where(and8(inArray7(src_exports.kpiActual.sbuKpiId, sbuKpiIds), eq9(src_exports.kpiActual.periodId, BASELINE7))) : [];
+  const actuals = sbuKpiIds.length ? await db.select().from(src_exports.kpiActual).where(and9(inArray7(src_exports.kpiActual.sbuKpiId, sbuKpiIds), eq10(src_exports.kpiActual.periodId, BASELINE8))) : [];
   const actualBySbuKpi = new Map(actuals.map((a) => [a.sbuKpiId, a]));
   const npsDef = defIdByCode.get("nps");
   const npsKpi = npsDef ? sbuKpiByKpiId.get(npsDef.id) : void 0;
@@ -1615,19 +1927,19 @@ async function getBrandHealth(code) {
 }
 
 // src/fourp.ts
-import { and as and9, eq as eq10, inArray as inArray8 } from "drizzle-orm";
-var BASELINE8 = "FY25-26";
+import { and as and10, eq as eq11, inArray as inArray8 } from "drizzle-orm";
+var BASELINE9 = "FY25-26";
 var TARGET4 = "FY26-27";
 var PS = ["Product", "Price", "Place", "Promotion"];
 async function getFourPOverview() {
-  const sbus = await db.select().from(src_exports.sbu).where(eq10(src_exports.sbu.active, true));
-  const sbuKpis = await db.select().from(src_exports.sbuKpi).where(eq10(src_exports.sbuKpi.active, true));
+  const sbus = await db.select().from(src_exports.sbu).where(eq11(src_exports.sbu.active, true));
+  const sbuKpis = await db.select().from(src_exports.sbuKpi).where(eq11(src_exports.sbuKpi.active, true));
   const kpiDefs = await db.select().from(src_exports.kpiDefinition);
   const defById = new Map(kpiDefs.map((d) => [d.id, d]));
   const sbuKpiIds = sbuKpis.map((k) => k.id);
-  const actuals = await db.select().from(src_exports.kpiActual).where(and9(inArray8(src_exports.kpiActual.sbuKpiId, sbuKpiIds), eq10(src_exports.kpiActual.periodId, BASELINE8)));
+  const actuals = await db.select().from(src_exports.kpiActual).where(and10(inArray8(src_exports.kpiActual.sbuKpiId, sbuKpiIds), eq11(src_exports.kpiActual.periodId, BASELINE9)));
   const actualBySbuKpi = new Map(actuals.map((a) => [a.sbuKpiId, a]));
-  const targets = await db.select().from(src_exports.kpiTarget).where(and9(inArray8(src_exports.kpiTarget.sbuKpiId, sbuKpiIds), eq10(src_exports.kpiTarget.periodId, TARGET4)));
+  const targets = await db.select().from(src_exports.kpiTarget).where(and10(inArray8(src_exports.kpiTarget.sbuKpiId, sbuKpiIds), eq11(src_exports.kpiTarget.periodId, TARGET4)));
   const targetBySbuKpi = new Map(targets.map((t) => [t.sbuKpiId, t]));
   const rows = sbus.map((s) => {
     const sk = sbuKpis.filter((k) => k.sbuId === s.id);
@@ -1661,14 +1973,14 @@ async function getFourPOverview() {
   return { rows, ps: PS };
 }
 async function getFourPDetail(code) {
-  const [sbu2] = await db.select().from(src_exports.sbu).where(eq10(src_exports.sbu.code, code));
+  const [sbu2] = await db.select().from(src_exports.sbu).where(eq11(src_exports.sbu.code, code));
   if (!sbu2) return null;
-  const sbuKpis = await db.select().from(src_exports.sbuKpi).where(and9(eq10(src_exports.sbuKpi.sbuId, sbu2.id), eq10(src_exports.sbuKpi.active, true)));
+  const sbuKpis = await db.select().from(src_exports.sbuKpi).where(and10(eq11(src_exports.sbuKpi.sbuId, sbu2.id), eq11(src_exports.sbuKpi.active, true)));
   const kpiDefs = await db.select().from(src_exports.kpiDefinition).where(inArray8(src_exports.kpiDefinition.id, sbuKpis.map((k) => k.kpiId)));
   const defById = new Map(kpiDefs.map((d) => [d.id, d]));
-  const actuals = await db.select().from(src_exports.kpiActual).where(and9(inArray8(src_exports.kpiActual.sbuKpiId, sbuKpis.map((k) => k.id)), eq10(src_exports.kpiActual.periodId, BASELINE8)));
+  const actuals = await db.select().from(src_exports.kpiActual).where(and10(inArray8(src_exports.kpiActual.sbuKpiId, sbuKpis.map((k) => k.id)), eq11(src_exports.kpiActual.periodId, BASELINE9)));
   const actualBySbuKpi = new Map(actuals.map((a) => [a.sbuKpiId, a]));
-  const targets = await db.select().from(src_exports.kpiTarget).where(and9(inArray8(src_exports.kpiTarget.sbuKpiId, sbuKpis.map((k) => k.id)), eq10(src_exports.kpiTarget.periodId, TARGET4)));
+  const targets = await db.select().from(src_exports.kpiTarget).where(and10(inArray8(src_exports.kpiTarget.sbuKpiId, sbuKpis.map((k) => k.id)), eq11(src_exports.kpiTarget.periodId, TARGET4)));
   const targetBySbuKpi = new Map(targets.map((t) => [t.sbuKpiId, t]));
   const p4 = PS.map((p) => {
     const inP = sbuKpis.filter((k) => k.fourP === p);
@@ -1750,7 +2062,7 @@ async function runAlertEngine() {
 }
 
 // src/decisions.ts
-import { eq as eq11, desc } from "drizzle-orm";
+import { eq as eq12, desc } from "drizzle-orm";
 var ACTION_STATUS = {
   approve: "approved",
   reject: "rejected",
@@ -1775,14 +2087,14 @@ async function getDecisions(status) {
     decidedBy: src_exports.decision.decidedBy,
     decidedAt: src_exports.decision.decidedAt,
     createdAt: src_exports.decision.createdAt
-  }).from(src_exports.decision).leftJoin(src_exports.sbu, eq11(src_exports.decision.sbuId, src_exports.sbu.id));
-  const rows = await (status ? q.where(eq11(src_exports.decision.status, status)) : q).orderBy(desc(src_exports.decision.createdAt));
+  }).from(src_exports.decision).leftJoin(src_exports.sbu, eq12(src_exports.decision.sbuId, src_exports.sbu.id));
+  const rows = await (status ? q.where(eq12(src_exports.decision.status, status)) : q).orderBy(desc(src_exports.decision.createdAt));
   return rows.map((r) => ({ ...r, options: r.options }));
 }
 async function createDecision(input) {
   let sbuId = null;
   if (input.sbuCode) {
-    const [sbu2] = await db.select().from(src_exports.sbu).where(eq11(src_exports.sbu.code, input.sbuCode)).limit(1);
+    const [sbu2] = await db.select().from(src_exports.sbu).where(eq12(src_exports.sbu.code, input.sbuCode)).limit(1);
     if (sbu2) sbuId = sbu2.id;
   }
   const [row] = await db.insert(src_exports.decision).values({
@@ -1800,7 +2112,7 @@ async function createDecision(input) {
   return row.id;
 }
 async function transitionDecision(id, action, byUser, assignTo) {
-  const [existing] = await db.select().from(src_exports.decision).where(eq11(src_exports.decision.id, id));
+  const [existing] = await db.select().from(src_exports.decision).where(eq12(src_exports.decision.id, id));
   if (!existing) return null;
   const nextStatus = ACTION_STATUS[action];
   const patch = { status: nextStatus };
@@ -1809,7 +2121,7 @@ async function transitionDecision(id, action, byUser, assignTo) {
     patch.decidedAt = /* @__PURE__ */ new Date();
   }
   if (action === "assign" && assignTo) patch.owner = assignTo;
-  await db.update(src_exports.decision).set(patch).where(eq11(src_exports.decision.id, id));
+  await db.update(src_exports.decision).set(patch).where(eq12(src_exports.decision.id, id));
   await db.insert(src_exports.auditLog).values({
     entity: "decision",
     entityId: String(id),
@@ -1822,7 +2134,7 @@ async function transitionDecision(id, action, byUser, assignTo) {
 }
 
 // src/reports.ts
-import { eq as eq12 } from "drizzle-orm";
+import { eq as eq13 } from "drizzle-orm";
 function csvCell(v) {
   if (v == null) return "";
   const s = String(v);
@@ -1887,7 +2199,7 @@ async function exportCoverageCsv() {
   return lines.join("\r\n");
 }
 async function exportScorecardCsv(code) {
-  const [sbu2] = await db.select().from(src_exports.sbu).where(eq12(src_exports.sbu.code, code));
+  const [sbu2] = await db.select().from(src_exports.sbu).where(eq13(src_exports.sbu.code, code));
   if (!sbu2) return null;
   const hub = await getSbuHub(sbu2.id);
   if (!hub) return null;
@@ -1921,13 +2233,13 @@ async function exportScorecardCsv(code) {
 }
 
 // src/sync.ts
-import { and as and10, eq as eq13, desc as desc2 } from "drizzle-orm";
+import { and as and11, eq as eq14, desc as desc2 } from "drizzle-orm";
 async function upsertRevenue(sbuCode, periodId, value, source, byUser) {
-  const [sbu2] = await db.select().from(src_exports.sbu).where(eq13(src_exports.sbu.code, sbuCode));
+  const [sbu2] = await db.select().from(src_exports.sbu).where(eq14(src_exports.sbu.code, sbuCode));
   if (!sbu2) return { sbuCode, periodId, status: "skip: unknown SBU" };
-  const [existing] = await db.select().from(src_exports.revenueActual).where(and10(eq13(src_exports.revenueActual.sbuId, sbu2.id), eq13(src_exports.revenueActual.periodId, periodId)));
+  const [existing] = await db.select().from(src_exports.revenueActual).where(and11(eq14(src_exports.revenueActual.sbuId, sbu2.id), eq14(src_exports.revenueActual.periodId, periodId)));
   if (existing) {
-    await db.update(src_exports.revenueActual).set({ value: String(value), source, asOf: (/* @__PURE__ */ new Date()).toISOString().slice(0, 10) }).where(eq13(src_exports.revenueActual.id, existing.id));
+    await db.update(src_exports.revenueActual).set({ value: String(value), source, asOf: (/* @__PURE__ */ new Date()).toISOString().slice(0, 10) }).where(eq14(src_exports.revenueActual.id, existing.id));
     await db.insert(src_exports.auditLog).values({ entity: "revenue_actual", entityId: `${sbuCode}/${periodId}`, action: "update", before: { value: Number(existing.value) }, after: { value, source }, byUser });
     return { sbuCode, periodId, status: "updated" };
   }
@@ -1936,7 +2248,7 @@ async function upsertRevenue(sbuCode, periodId, value, source, byUser) {
   return { sbuCode, periodId, status: "created" };
 }
 async function getSyncLog(limit = 50) {
-  return db.select().from(src_exports.auditLog).where(eq13(src_exports.auditLog.entity, "revenue_actual")).orderBy(desc2(src_exports.auditLog.createdAt)).limit(limit);
+  return db.select().from(src_exports.auditLog).where(eq14(src_exports.auditLog.entity, "revenue_actual")).orderBy(desc2(src_exports.auditLog.createdAt)).limit(limit);
 }
 
 // src/index.ts
@@ -2049,7 +2361,7 @@ app.get("/api/datagaps", requireAuth(), async (c) => {
     owner: src_exports.dataGap.owner,
     priority: src_exports.dataGap.priority,
     status: src_exports.dataGap.status
-  }).from(src_exports.dataGap).leftJoin(src_exports.sbu, eq14(src_exports.dataGap.sbuId, src_exports.sbu.id)).orderBy(eq14(src_exports.dataGap.status, "open"), src_exports.dataGap.priority);
+  }).from(src_exports.dataGap).leftJoin(src_exports.sbu, eq15(src_exports.dataGap.sbuId, src_exports.sbu.id)).orderBy(eq15(src_exports.dataGap.status, "open"), src_exports.dataGap.priority);
   return c.json({ gaps: rows });
 });
 app.get("/api/market", requireAuth(), async (c) => {
@@ -2061,6 +2373,53 @@ app.get("/api/market/:code", requireAuth(), async (c) => {
   const detail = await getMarketDetail(code);
   if (!detail) return c.json({ error: "Not found" }, 404);
   return c.json(detail);
+});
+app.get("/api/competition", requireAuth(), async (c) => {
+  return c.json({ sbus: await getCompetitionOverview() });
+});
+app.get("/api/competition/:code", requireAuth(), async (c) => {
+  const code = c.req.param("code");
+  const detail = code ? await getCompetitionDetail(code) : null;
+  if (!detail) return c.json({ error: "Not found" }, 404);
+  return c.json(detail);
+});
+app.post("/api/competition/:code/activity", requireAuth(), requireRole("BRAND_CUSTODIAN", "SBU_HEAD", "SPA"), async (c) => {
+  const code = c.req.param("code");
+  const b = await c.req.json();
+  const types = ["price_cut", "promotion", "tvc", "digital", "dealer_scheme", "new_product", "other"];
+  if (!code || !b?.brandId || !b?.activityDate || !b?.activityType || !types.includes(b.activityType)) {
+    return c.json({ error: "brandId, activityDate and a valid activityType are required" }, 400);
+  }
+  const byUser = c.get("auth").email ?? "unknown";
+  const res = await addCompetitorActivity(code, {
+    brandId: b.brandId,
+    activityDate: b.activityDate,
+    activityType: b.activityType,
+    channel: b.channel,
+    spend: b.spend,
+    reach: b.reach,
+    priceChangePct: b.priceChangePct,
+    message: b.message,
+    notes: b.notes
+  }, byUser);
+  if ("error" in res) return c.json({ error: res.error }, 400);
+  return c.json(res, 201);
+});
+app.post("/api/competition/:code/competitor", requireAuth(), requireRole("BRAND_CUSTODIAN", "SBU_HEAD", "SPA"), async (c) => {
+  const code = c.req.param("code");
+  const b = await c.req.json();
+  if (!code || !b?.brandId) return c.json({ error: "brandId is required" }, 400);
+  const byUser = c.get("auth").email ?? "unknown";
+  const res = await upsertCompetitorProfile(code, {
+    brandId: b.brandId,
+    positioning: b.positioning,
+    threatLevel: b.threatLevel,
+    priceIndex: b.priceIndex,
+    strengths: b.strengths,
+    weaknesses: b.weaknesses
+  }, byUser);
+  if ("error" in res) return c.json({ error: res.error }, 400);
+  return c.json(res);
 });
 app.get("/api/budget", requireAuth(), async (c) => {
   return c.json(await getBudgetOverview());
@@ -2099,7 +2458,7 @@ app.get("/api/fourp/:code", requireAuth(), async (c) => {
 app.get("/api/sbus/:code", requireAuth(), async (c) => {
   const code = c.req.param("code");
   if (!code) return c.json({ error: "Not found" }, 404);
-  const [sbu2] = await db.select().from(src_exports.sbu).where(eq14(src_exports.sbu.code, code));
+  const [sbu2] = await db.select().from(src_exports.sbu).where(eq15(src_exports.sbu.code, code));
   if (!sbu2) return c.json({ error: "Not found" }, 404);
   const indices = await computeSbuIndices(sbu2.id);
   return c.json({ sbu: { code: sbu2.code, name: sbu2.name, category: sbu2.category, custodian: sbu2.custodian }, indices });
@@ -2107,7 +2466,7 @@ app.get("/api/sbus/:code", requireAuth(), async (c) => {
 app.get("/api/sbus/:code/hub", requireAuth(), async (c) => {
   const code = c.req.param("code");
   if (!code) return c.json({ error: "Not found" }, 404);
-  const [sbu2] = await db.select().from(src_exports.sbu).where(eq14(src_exports.sbu.code, code));
+  const [sbu2] = await db.select().from(src_exports.sbu).where(eq15(src_exports.sbu.code, code));
   if (!sbu2) return c.json({ error: "Not found" }, 404);
   const hub = await getSbuHub(sbu2.id);
   if (!hub) return c.json({ error: "Not found" }, 404);
@@ -2135,9 +2494,9 @@ app.post("/api/sbus/:code/approve-estimates", requireAuth(), requireTier("admin"
   const code = c.req.param("code");
   if (!code) return c.json({ error: "Not found" }, 404);
   const byUser = c.get("auth").email ?? "unknown";
-  const [sbu2] = await db.select().from(src_exports.sbu).where(eq14(src_exports.sbu.code, code));
+  const [sbu2] = await db.select().from(src_exports.sbu).where(eq15(src_exports.sbu.code, code));
   if (!sbu2) return c.json({ error: "Not found" }, 404);
-  const estimates = await db.select().from(src_exports.sbuKpi).where(and11(eq14(src_exports.sbuKpi.sbuId, sbu2.id), eq14(src_exports.sbuKpi.isEstimate, true), eq14(src_exports.sbuKpi.active, true)));
+  const estimates = await db.select().from(src_exports.sbuKpi).where(and12(eq15(src_exports.sbuKpi.sbuId, sbu2.id), eq15(src_exports.sbuKpi.isEstimate, true), eq15(src_exports.sbuKpi.active, true)));
   if (!estimates.length) return c.json({ approved: 0, message: "No estimate baselines to approve" });
   const ids = estimates.map((e) => e.id);
   await db.update(src_exports.sbuKpi).set({ isEstimate: false }).where(inArray9(src_exports.sbuKpi.id, ids));
