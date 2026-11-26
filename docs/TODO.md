@@ -11,8 +11,9 @@
 - [x] DB schema + Drizzle migrations (31 tables applied to Neon Postgres)
 - [x] Auth + RBAC (Neon Auth — Managed Better Auth: JWT verify via JWKS + requireRole/requireTier middleware + 15 roles seeded)
 - [x] Calc engine (`packages/calc`) + unit tests (23 passing)
-- [ ] Design system (`packages/ui`) — tokens + infographic components
+- [x] Design system (`packages/ui`) — tokens (navy/gold/blue/teal, RAG, index colours, tables, cards)
 - [ ] Data Input Center (forms, Excel/CSV upload + validation + audit + rollback)
+- [x] Frontend (`apps/web` — React/Vite + @neon/auth + Cockpit + SBU Hub) + live cockpit/SBU API endpoints
 - [x] Seed: KPI library (63 KPIs / 7 dims) + CBDO framework + 13 SBUs + fiscal periods + Cement (KPIs, targets, revenue, competitors, budget, maturity) — §8 fixes applied
 
 ## Phase 2 — SBU Brand Hub for all 13 SBUs
