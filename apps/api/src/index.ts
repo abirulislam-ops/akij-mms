@@ -15,6 +15,11 @@ import { getStrategy } from "./strategy.js";
 import { getBrandHealth } from "./health.js";
 import { getFourPOverview, getFourPDetail } from "./fourp.js";
 import { getPortfolio } from "./analytics.js";
+import { runAlertEngine } from "./alerts.js";
+import { getDecisions, createDecision, transitionDecision, type DecisionAction } from "./decisions.js";
+import { whatIfShare } from "./market.js";
+import { exportCockpitCsv, exportCoverageCsv } from "./reports.js";
+import { upsertRevenue, getSyncLog } from "./sync.js";
 
 const app = new Hono<{ Variables: AppVariables }>();
 
@@ -50,6 +55,60 @@ app.get("/api/cockpit", requireAuth(), async (c) => {
 // Portfolio (Executive Cockpit): scores + market reconciliation + budget in one payload.
 app.get("/api/analytics", requireAuth(), async (c) => {
   return c.json(await getPortfolio());
+});
+
+// Decision Support Center: live alert engine (rules over reconciliation, coverage, SOV/SOM, budget).
+app.get("/api/alerts", requireAuth(), async (c) => {
+  return c.json({ alerts: await runAlertEngine() });
+});
+
+// Decision cards: list (optional ?status=) + create + transition (approve/reject/assign/ask/done).
+app.get("/api/decisions", requireAuth(), async (c) => {
+  const status = c.req.query("status");
+  return c.json({ decisions: await getDecisions(status) });
+});
+app.post("/api/decisions", requireAuth(), requireRole("SPA", "BRAND_CUSTODIAN", "SBU_HEAD"), async (c) => {
+  const body = (await c.req.json()) as Parameters<typeof createDecision>[0];
+  const id = await createDecision(body);
+  return c.json({ id });
+});
+app.post("/api/decisions/:id/transition", requireAuth(), requireTier("admin"), async (c) => {
+  const id = Number(c.req.param("id"));
+  const body = (await c.req.json()) as { action: DecisionAction; assignTo?: string };
+  const byUser = c.get("auth").email ?? "unknown";
+  const result = await transitionDecision(id, body.action, byUser, body.assignTo);
+  if (!result) return c.json({ error: "Not found" }, 404);
+  return c.json(result);
+});
+
+// What-if: project market share for a hypothetical brand revenue-growth rate.
+app.post("/api/whatif", requireAuth(), async (c) => {
+  const body = (await c.req.json()) as { code: string; brandGrowth: number };
+  const result = await whatIfShare(body.code, body.brandGrowth);
+  if (!result) return c.json({ error: "Not found" }, 404);
+  return c.json(result);
+});
+
+// Reports: CSV export (cockpit portfolio + coverage table).
+app.get("/api/export/cockpit.csv", requireAuth(), async (c) => {
+  return c.text(await exportCockpitCsv(), 200, { "Content-Type": "text/csv; charset=utf-8" });
+});
+app.get("/api/export/coverage.csv", requireAuth(), async (c) => {
+  return c.text(await exportCoverageCsv(), 200, { "Content-Type": "text/csv; charset=utf-8" });
+});
+
+// ERP sync: accept live revenue rows (from the iBOSDDD gateway) and upsert.
+app.post("/api/sync/revenue", requireAuth(), requireTier("admin"), async (c) => {
+  const body = (await c.req.json()) as { rows: { sbuCode: string; periodId: string; value: number; source?: string }[] };
+  const byUser = c.get("auth").email ?? "unknown";
+  const results = [];
+  for (const r of body.rows ?? []) {
+    results.push(await upsertRevenue(r.sbuCode, r.periodId, r.value, r.source ?? "ERP/GL (iBOSDDD)", byUser));
+  }
+  return c.json({ results });
+});
+app.get("/api/sync/log", requireAuth(), async (c) => {
+  return c.json({ log: await getSyncLog() });
 });
 
 // Market & Competition: group overview + SBU detail.

@@ -175,3 +175,44 @@ export async function getMarketDetail(code: string) {
       : null,
   };
 }
+
+/** What-if: project market share for a hypothetical brand revenue-growth rate. */
+export async function whatIfShare(code: string, brandGrowthPct: number) {
+  const d = await loadShareData();
+  const s = d.sbus.find((x) => x.code === code);
+  if (!s) return null;
+
+  const own = d.brands.find((b) => b.sbuId === s.id && b.isOwn);
+  const ownShare = own ? d.shareByBrand.get(own.id) : undefined;
+  const ownShareVal = ownShare?.valueShare != null ? Number(ownShare.valueShare) : null;
+  const market = d.marketByCategory.get(s.code);
+  const marketGrowth = market?.growth != null ? Number(market.growth) / 100 : null;
+
+  if (ownShareVal == null || marketGrowth == null) return null;
+
+  const brandGrowth = brandGrowthPct / 100;
+  const shareTargetKpiId = d.shareKpiBySbu.get(s.id);
+  const shareTarget = shareTargetKpiId ? d.shareTargetBySbuKpi.get(shareTargetKpiId) : undefined;
+  const targetShare = shareTarget ? Number(shareTarget.value) : null;
+
+  const rec = reconcile({
+    currentShare: pctShare(ownShareVal)!,
+    brandGrowth,
+    marketGrowth,
+    targetShare: targetShare != null ? (pctShare(targetShare) ?? undefined) : undefined,
+    shareCeiling: 0.6,
+  });
+
+  return {
+    code: s.code,
+    name: s.name,
+    currentShare: ownShareVal,
+    marketGrowth: market?.growth != null ? Number(market.growth) : null,
+    brandGrowth: brandGrowthPct,
+    targetShare,
+    projectedShare: Math.round(rec.projectedShare * 10000) / 100,
+    shareChangePp: Math.round(rec.shareChangePp * 100) / 100,
+    verdict: rec.verdict,
+    flags: rec.flags.map((f) => ({ key: f, label: FLAG_LABEL[f] })),
+  };
+}

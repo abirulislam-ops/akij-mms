@@ -116,3 +116,11 @@ input, select { background: #fff; border: 1px solid var(--line); border-radius: 
 .bar-fill.estimate { background: repeating-linear-gradient(45deg, #cfd6e0, #cfd6e0 5px, #bcc6d2 5px, #bcc6d2 10px) !important; }
 .muted-line { color: var(--muted); font-size: 12px; }
 .mono { font-variant-numeric: tabular-nums; }
+
+/* print: A4 landscape MD pack */
+@media print {
+  body { background: #fff; }
+  .topbar, .no-print, .tabs, .subtabs { display: none !important; }
+  .card { box-shadow: none; border: 1px solid #ccc; }
+  @page { size: A4 landscape; margin: 12mm; }
+}

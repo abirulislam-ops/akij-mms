@@ -10,6 +10,8 @@ import Budget from "./pages/Budget";
 import FourP from "./pages/FourP";
 import Health from "./pages/Health";
 import Strategy from "./pages/Strategy";
+import Decisions from "./pages/Decisions";
+import Reports from "./pages/Reports";
 
 export default function App() {
   const [user, setUser] = useState<SessionUser | null | undefined>(undefined);
@@ -39,6 +41,8 @@ export default function App() {
         <Route path="/fourp" element={<FourP />} />
         <Route path="/health/:code" element={<Health />} />
         <Route path="/strategy/:code" element={<Strategy />} />
+        <Route path="/decisions" element={<Decisions />} />
+        <Route path="/reports" element={<Reports />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>
@@ -60,6 +64,8 @@ function Topbar({ user, onSignOut }: { user: SessionUser; onSignOut: () => void 
         <NavLink to="/health/ACCL" active={loc.pathname.startsWith("/health")} label="Health" />
         <NavLink to="/strategy/ACCL" active={loc.pathname.startsWith("/strategy")} label="Strategy" />
         <NavLink to="/coverage" active={loc.pathname === "/coverage"} label="Coverage" />
+        <NavLink to="/decisions" active={loc.pathname === "/decisions"} label="Decisions" />
+        <NavLink to="/reports" active={loc.pathname === "/reports"} label="Reports" />
       </nav>
       <span className="spacer" />
       <span style={{ fontSize: 12, opacity: 0.8 }}>{user.email}</span>
