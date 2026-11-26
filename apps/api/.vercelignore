@@ -1,0 +1,5 @@
+# Deploy only the pre-bundled function + config. Source is bundled into api/index.js.
+src/
+bundle.mjs
+set-env.ps1
+.env.local

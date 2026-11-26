@@ -4,9 +4,6 @@ var __export = (target, all) => {
     __defProp(target, name, { get: all[name], enumerable: true });
 };
 
-// src/vercel.ts
-import { handle } from "@hono/vercel";
-
 // src/index.ts
 import { Hono } from "hono";
 import { cors } from "hono/cors";
@@ -2109,7 +2106,33 @@ app.post("/api/sbus/:code/approve-estimates", requireAuth(), requireTier("admin"
 var index_default = app;
 
 // src/vercel.ts
-var vercel_default = handle(index_default);
+async function handler(req, res) {
+  try {
+    const host = req.headers.host ?? "localhost";
+    const url = new URL(req.url ?? "/", `http://${host}`);
+    const headers = new Headers();
+    for (const [k, v] of Object.entries(req.headers)) {
+      if (v == null) continue;
+      headers.set(k, Array.isArray(v) ? v.join(", ") : String(v));
+    }
+    const init = { method: req.method, headers };
+    if (req.method !== "GET" && req.method !== "HEAD") {
+      const chunks = [];
+      for await (const chunk of req) chunks.push(chunk);
+      init.body = Buffer.concat(chunks);
+    }
+    const response = await index_default.fetch(new Request(url, init));
+    res.statusCode = response.status;
+    for (const [k, v] of response.headers.entries()) res.setHeader(k, v);
+    const body = Buffer.from(await response.arrayBuffer());
+    res.end(body);
+  } catch (err) {
+    console.error("handler error", err);
+    res.statusCode = 500;
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify({ error: "Internal Server Error" }));
+  }
+}
 export {
-  vercel_default as default
+  handler as default
 };

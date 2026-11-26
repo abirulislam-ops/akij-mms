@@ -19,7 +19,6 @@ await build({
     "drizzle-orm/*",
     "hono",
     "hono/*",
-    "@hono/vercel",
     "jose",
   ],
   logLevel: "info",

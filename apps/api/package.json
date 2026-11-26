@@ -9,7 +9,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@hono/vercel": "^1.0.1",
     "dotenv": "^16.4.5",
     "drizzle-orm": "^0.45.4",
     "hono": "^4.6.0",
