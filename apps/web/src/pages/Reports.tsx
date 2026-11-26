@@ -43,7 +43,8 @@ async function downloadCsv(path: string, name: string) {
   const token = await getToken();
   const headers: Record<string, string> = {};
   if (token) headers.Authorization = `Bearer ${token}`;
-  const res = await fetch(path, { headers });
+  const base = import.meta.env.VITE_API_URL ?? "";
+  const res = await fetch(base + path, { headers });
   if (!res.ok) { alert(`Export failed: ${res.status}`); return; }
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);

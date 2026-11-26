@@ -1,5 +1,8 @@
 import { getToken } from "./auth";
 
+// Absolute API origin in production (set via VITE_API_URL on Vercel); empty in dev (Vite proxy).
+const BASE = import.meta.env.VITE_API_URL ?? "";
+
 async function headers(): Promise<Record<string, string>> {
   const token = await getToken();
   const h: Record<string, string> = { "Content-Type": "application/json" };
@@ -8,12 +11,12 @@ async function headers(): Promise<Record<string, string>> {
 }
 
 export async function apiFetch<T = unknown>(path: string): Promise<T> {
-  const res = await fetch(path, { headers: await headers() });
+  const res = await fetch(BASE + path, { headers: await headers() });
   return parse<T>(res);
 }
 
 export async function apiPost<T = unknown>(path: string, body?: unknown): Promise<T> {
-  const res = await fetch(path, { method: "POST", headers: await headers(), body: body != null ? JSON.stringify(body) : undefined });
+  const res = await fetch(BASE + path, { method: "POST", headers: await headers(), body: body != null ? JSON.stringify(body) : undefined });
   return parse<T>(res);
 }
 
