@@ -419,12 +419,40 @@ export const user = pgTable(
   {
     id: serial("id").primaryKey(),
     email: text("email").notNull().unique(),
+    /** Better Auth user id (from the neon_auth schema) — the link to Managed Auth. */
+    neonAuthUserId: text("neon_auth_user_id").unique(),
     name: text("name"),
-    role: text("role").notNull(), // MD, CBDO, Brand Custodian, SBU Head, Finance, Research, Viewer, ...
-    sbuIds: jsonb("sbu_ids"), // scope: SBUs this user can access (null = all)
+    /** Legacy single primary role; the source of truth for RBAC is the `user_role` mapping. */
+    role: text("role"),
+    /** SBUs this user can access (jsonb array of SBU codes; null/empty = all). */
+    sbuIds: jsonb("sbu_ids"),
     active: boolean("active").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
+);
+
+/** The RBAC roles (MD, CBDO, Brand Custodian, functional owners, Viewer, …). */
+export const role = pgTable(
+  "role",
+  {
+    id: serial("id").primaryKey(),
+    code: text("code").notNull().unique(), // "MD", "CBDO", "BRAND_CUSTODIAN", ...
+    name: text("name").notNull(),
+    /** One of: moderator, admin, editor, functional, viewer. */
+    tier: text("tier").$type<"moderator" | "admin" | "editor" | "functional" | "viewer">().notNull(),
+    description: text("description"),
+  },
+);
+
+/** Many-to-many user ↔ role. */
+export const userRole = pgTable(
+  "user_role",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id").notNull().references(() => user.id),
+    roleId: integer("role_id").notNull().references(() => role.id),
+  },
+  (t) => [uniqueIndex("user_role_unique_idx").on(t.userId, t.roleId)],
 );
 
 export const auditLog = pgTable(

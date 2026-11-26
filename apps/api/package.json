@@ -1,0 +1,18 @@
+{
+  "name": "@akij-mms/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@akij-mms/schema": "*",
+    "dotenv": "^16.4.5",
+    "drizzle-orm": "^0.45.4",
+    "hono": "^4.6.0",
+    "jose": "^5.9.0",
+    "pg": "^8.12.0"
+  }
+}

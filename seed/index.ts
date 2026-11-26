@@ -177,6 +177,27 @@ const CEMENT_COMPETITORS: [string, number][] = [
 const CEMENT_WEIGHTS = { d1: 28, d2: 13, d3: 9, d4: 20, d5: 15, d6: 4, d7: 11 };
 
 // ===========================================================================
+// Roles (15, RBAC tiers)
+// ===========================================================================
+const ROLES: { code: string; name: string; tier: "moderator" | "admin" | "editor" | "functional" | "viewer" }[] = [
+  { code: "MD", name: "Managing Director", tier: "moderator" },
+  { code: "CBDO", name: "Chief Business Development Officer", tier: "moderator" },
+  { code: "SPA", name: "Strategic Planner & Analysis", tier: "admin" },
+  { code: "BRAND_CUSTODIAN", name: "Brand Custodian", tier: "editor" },
+  { code: "SBU_HEAD", name: "SBU Business Head", tier: "editor" },
+  { code: "FINANCE", name: "Finance", tier: "functional" },
+  { code: "RESEARCH", name: "Research / Insights", tier: "functional" },
+  { code: "OOH_ACTIVATION", name: "OOH & Activation", tier: "functional" },
+  { code: "NETWORKING_BD", name: "Networking, Partnership & BD", tier: "functional" },
+  { code: "DIGITAL", name: "Digital Management", tier: "functional" },
+  { code: "CREATIVE", name: "Creative", tier: "functional" },
+  { code: "MOTION", name: "Motion & Cinematography", tier: "functional" },
+  { code: "PR_MEDIA", name: "PR & Media Management", tier: "functional" },
+  { code: "CRM_ECOMMERCE", name: "CRM, E-Commerce & Contact Center", tier: "functional" },
+  { code: "VIEWER", name: "Viewer", tier: "viewer" },
+];
+
+// ===========================================================================
 // Seed
 // ===========================================================================
 async function main() {
@@ -199,6 +220,11 @@ async function main() {
       .insert(schema.sbu)
       .values({ code: s.code, name: s.name, legalName: s.legalName, category: s.category, businessModel: s.model, custodian: s.custodian })
       .onConflictDoNothing();
+  }
+
+  console.log(`Seeding ${ROLES.length} roles…`);
+  for (const r of ROLES) {
+    await db.insert(schema.role).values({ code: r.code, name: r.name, tier: r.tier }).onConflictDoNothing();
   }
 
   // Build id maps (idempotent re-runs)
