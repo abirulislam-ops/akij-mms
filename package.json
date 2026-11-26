@@ -1,0 +1,29 @@
+{
+  "name": "akij-mms",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "AKIJ Resource — Marketing Management System",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "verify": "tsx scripts/verify.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.600.0",
+    "@neon/config": "^1.14.8",
+    "@neon/env": "^2.1.11",
+    "@neon/realtime": "^0.2.2",
+    "dotenv": "^16.4.5",
+    "openai": "^4.52.0",
+    "pg": "^8.12.0",
+    "ws": "^8.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/pg": "^8.11.6",
+    "@types/ws": "^8.18.2",
+    "tsx": "^4.16.0",
+    "typescript": "^5.5.0"
+  }
+}
