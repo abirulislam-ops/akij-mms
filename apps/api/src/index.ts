@@ -1,8 +1,10 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { eq } from "drizzle-orm";
 import { db, schema } from "./db.js";
 import { requireAuth, type AppVariables } from "./auth.js";
 import { getUserRoles, requireRole } from "./rbac.js";
+import { computeSbuIndices, getCockpit } from "./scores.js";
 
 const app = new Hono<{ Variables: AppVariables }>();
 
@@ -27,6 +29,22 @@ app.get("/api/sbus", requireAuth(), async (c) => {
 app.get("/api/roles", requireAuth(), requireRole("SPA"), async (c) => {
   const rows = await db.select({ code: schema.role.code, name: schema.role.name, tier: schema.role.tier }).from(schema.role);
   return c.json({ roles: rows });
+});
+
+// Group cockpit: every SBU with composite score + revenue.
+app.get("/api/cockpit", requireAuth(), async (c) => {
+  const rows = await getCockpit();
+  return c.json({ sbus: rows });
+});
+
+// SBU detail: indices + KPI rows.
+app.get("/api/sbus/:code", requireAuth(), async (c) => {
+  const code = c.req.param("code");
+  if (!code) return c.json({ error: "Not found" }, 404);
+  const [sbu] = await db.select().from(schema.sbu).where(eq(schema.sbu.code, code));
+  if (!sbu) return c.json({ error: "Not found" }, 404);
+  const indices = await computeSbuIndices(sbu.id);
+  return c.json({ sbu: { code: sbu.code, name: sbu.name, category: sbu.category, custodian: sbu.custodian }, indices });
 });
 
 export default app;

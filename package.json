@@ -18,25 +18,34 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.600.0",
+    "@hono/node-server": "^2.1.11",
     "@neon/auth": "^0.8.2",
     "@neon/config": "^1.14.8",
     "@neon/env": "^2.1.11",
     "@neon/realtime": "^0.2.2",
+    "@tanstack/react-query": "^5.108.4",
     "dotenv": "^16.4.5",
     "drizzle-orm": "^0.45.4",
     "hono": "^4.13.22",
     "jose": "^6.2.18",
     "openai": "^4.52.0",
     "pg": "^8.12.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-router-dom": "^7.18.7",
     "ws": "^8.23.0"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
     "@types/pg": "^8.11.6",
+    "@types/react": "^19.3.3",
+    "@types/react-dom": "^19.3.0",
     "@types/ws": "^8.18.2",
+    "@vitejs/plugin-react": "^6.3.0",
     "drizzle-kit": "^0.31.11",
     "tsx": "^4.16.0",
     "typescript": "^5.5.0",
+    "vite": "^8.3.8",
     "vitest": "^2.1.0"
   }
 }

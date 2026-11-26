@@ -12,6 +12,6 @@
     "noEmit": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src/**/*.ts", "scripts/**/*.ts", "seed/**/*.ts", "packages/*/src/**/*.ts", "packages/*/test/**/*.ts", "apps/*/src/**/*.ts"],
+  "include": ["src/**/*.ts", "scripts/**/*.ts", "seed/**/*.ts", "packages/*/src/**/*.ts", "packages/*/test/**/*.ts", "apps/api/src/**/*.ts"],
   "exclude": ["node_modules", "neon.ts", "hello.ts"]
 }
