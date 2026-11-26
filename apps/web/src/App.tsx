@@ -7,6 +7,7 @@ import Hub from "./pages/Hub";
 import Coverage from "./pages/Coverage";
 import MarketOverview, { MarketDetail } from "./pages/Market";
 import Competition, { CompetitionDetail } from "./pages/Competition";
+import Measure from "./pages/Measure";
 import Budget from "./pages/Budget";
 import FourP from "./pages/FourP";
 import Health from "./pages/Health";
@@ -42,6 +43,7 @@ export default function App() {
           <Route path="/market/:code" element={<MarketDetail />} />
           <Route path="/competition" element={<Competition />} />
           <Route path="/competition/:code" element={<CompetitionDetail />} />
+          <Route path="/measure/:code" element={<Measure />} />
           <Route path="/budget" element={<Budget />} />
           <Route path="/fourp" element={<FourP />} />
           <Route path="/health/:code" element={<Health />} />
@@ -66,6 +68,7 @@ function Topbar({ user, onSignOut }: { user: SessionUser; onSignOut: () => void 
         <NavLink to="/" active={loc.pathname === "/"} label="Cockpit" />
         <NavLink to="/market" active={loc.pathname.startsWith("/market")} label="Market" />
         <NavLink to="/competition" active={loc.pathname.startsWith("/competition")} label="Competition" />
+        <NavLink to="/measure/ACCL" active={loc.pathname.startsWith("/measure")} label="Measure" />
         <NavLink to="/budget" active={loc.pathname === "/budget"} label="Budget" />
         <NavLink to="/fourp" active={loc.pathname === "/fourp"} label="4P" />
         <NavLink to="/health/ACCL" active={loc.pathname.startsWith("/health")} label="Health" />

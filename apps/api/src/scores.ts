@@ -6,7 +6,7 @@ const BASELINE = "FY25-26";
 const TARGET = "FY26-27";
 
 /** Compute BEI/BHI/BPI/Composite for an SBU from live DB data (baseline actual vs FY26-27 target). */
-export async function computeSbuIndices(sbuId: number) {
+async function computeIndices(sbuId: number, actualPeriodId: string) {
   const sbuKpis = await db
     .select()
     .from(schema.sbuKpi)
@@ -23,7 +23,7 @@ export async function computeSbuIndices(sbuId: number) {
   const actuals = await db
     .select()
     .from(schema.kpiActual)
-    .where(and(inArray(schema.kpiActual.sbuKpiId, sbuKpiIds), eq(schema.kpiActual.periodId, BASELINE)));
+    .where(and(inArray(schema.kpiActual.sbuKpiId, sbuKpiIds), eq(schema.kpiActual.periodId, actualPeriodId)));
   const actualBySbuKpi = new Map(actuals.map((a) => [a.sbuKpiId, a]));
 
   const targets = await db
@@ -49,6 +49,16 @@ export async function computeSbuIndices(sbuId: number) {
   });
 
   return allIndices(kpis, false);
+}
+
+/** Baseline (FY25-26 actual) vs FY26-27 target — the cockpit score. */
+export async function computeSbuIndices(sbuId: number) {
+  return computeIndices(sbuId, BASELINE);
+}
+
+/** A chosen actual period vs the same-period target — used by Measurement. */
+export async function computeSbuIndicesForPeriod(sbuId: number, actualPeriodId: string) {
+  return computeIndices(sbuId, actualPeriodId);
 }
 
 /** Group cockpit: every active SBU with its Composite score + revenue + market share. */

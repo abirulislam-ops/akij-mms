@@ -13,6 +13,7 @@ import { getMarketOverview, getMarketDetail } from "./market.js";
 import { getCompetitionOverview, getCompetitionDetail, addCompetitorActivity, upsertCompetitorProfile } from "./competition.js";
 import { getFramework } from "./framework.js";
 import { getPlaybook } from "./playbook.js";
+import { getSbuMeasure, saveSbuMeasure } from "./measure.js";
 import { getBudgetOverview, getBudgetDetail } from "./budget.js";
 import { getStrategy } from "./strategy.js";
 import { getBrandHealth } from "./health.js";
@@ -271,6 +272,25 @@ app.get("/api/fourp/:code", requireAuth(), async (c) => {
   const detail = await getFourPDetail(code);
   if (!detail) return c.json({ error: "Not found" }, 404);
   return c.json(detail);
+});
+
+// Measurement: custodian KPI input → kpi_actual → same-period indices (BEI/BHI/BPI).
+app.get("/api/sbus/:code/measure", requireAuth(), async (c) => {
+  const code = c.req.param("code");
+  const period = c.req.query("period") || "FY26-27";
+  const data = code ? await getSbuMeasure(code, period) : null;
+  if (!data) return c.json({ error: "Not found" }, 404);
+  return c.json(data);
+});
+app.post("/api/sbus/:code/measure", requireAuth(), requireRole("BRAND_CUSTODIAN", "SBU_HEAD", "SPA"), async (c) => {
+  const code = c.req.param("code");
+  const body = (await c.req.json()) as { periodId?: string; rows?: { kpiCode?: string; value?: number | string; confidence?: string; source?: string }[] };
+  if (!code || !Array.isArray(body.rows)) return c.json({ error: "rows must be an array" }, 400);
+  const period = body.periodId || "FY26-27";
+  const byUser = c.get("auth").email ?? "unknown";
+  const res = await saveSbuMeasure(code, period, body.rows.map((r) => ({ kpiCode: r.kpiCode ?? "", value: r.value ?? "", confidence: r.confidence, source: r.source })), byUser);
+  if (!res) return c.json({ error: "Not found" }, 404);
+  return c.json(res);
 });
 
 // SBU detail: indices + KPI rows.
