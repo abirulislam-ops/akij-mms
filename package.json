@@ -17,6 +17,8 @@
     "seed:campaigns": "tsx seed/campaigns.ts",
     "seed:market": "tsx seed/market.ts",
     "seed:decisions": "tsx seed/decisions.ts",
+    "seed:datagaps": "tsx seed/datagaps.ts",
+    "sync:erp": "tsx scripts/sync-erp.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

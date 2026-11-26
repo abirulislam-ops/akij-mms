@@ -1,0 +1,16 @@
+{
+  "pulledAt": "2026-11-26",
+  "source": "iBOSDDD ERP — oms.tblSalesOrderHeader, net order value (BDT Cr), FY26-27 YTD (Jul–Nov 2026)",
+  "periodId": "FY26-27",
+  "rows": [
+    { "sbuCode": "ACCL", "value": 929.58 },
+    { "sbuCode": "AEL", "value": 806.11 },
+    { "sbuCode": "AIL", "value": 575.40 },
+    { "sbuCode": "AAFL", "value": 497.81 },
+    { "sbuCode": "ARMCL", "value": 288.32 },
+    { "sbuCode": "ALEL", "value": 139.91 },
+    { "sbuCode": "ABSL", "value": 27.36 },
+    { "sbuCode": "AAIL", "value": 24.99 }
+  ],
+  "note": "ACEL/AASL/NJL/ALCL/AMPL have no sales orders in this period (different system or not yet transacting) — logged as Data Gap."
+}

@@ -33,6 +33,18 @@ interface CoverageData {
   };
 }
 
+interface DataGap {
+  id: number;
+  sbuCode: string | null;
+  sbuName: string | null;
+  item: string;
+  whyNeeded: string | null;
+  source: string | null;
+  owner: string | null;
+  priority: "high" | "medium" | "low";
+  status: "open" | "closed";
+}
+
 const STATUS_META: Record<Status, { color: string; label: string; bg: string }> = {
   measured: { color: "var(--green)", label: "Measured", bg: "#e4f2ea" },
   estimate: { color: "var(--amber)", label: "Estimate", bg: "repeating-linear-gradient(45deg,#fcf3e2,#fcf3e2 4px,#f6e7c8 4px,#f6e7c8 8px)" },
@@ -44,11 +56,16 @@ export default function Coverage() {
     queryKey: ["coverage"],
     queryFn: () => apiFetch<CoverageData>("/api/coverage"),
   });
+  const { data: gapsData } = useQuery({
+    queryKey: ["datagaps"],
+    queryFn: () => apiFetch<{ gaps: DataGap[] }>("/api/datagaps"),
+  });
 
   if (isLoading) return <div style={{ padding: 32 }}>Loading coverage…</div>;
   if (error) return <div style={{ padding: 32, color: "var(--red)" }}>{String(error)}</div>;
 
   const d = data!;
+  const gaps = gapsData?.gaps ?? [];
   const s = d.summary;
 
   return (
@@ -113,6 +130,31 @@ export default function Coverage() {
           <span><span className="badge" style={{ background: STATUS_META.estimate.bg, color: STATUS_META.estimate.color }}>≈</span> estimate (benchmark, excluded from official scores)</span>
           <span><span className="badge" style={{ background: STATUS_META.missing.bg, color: STATUS_META.missing.color }}>✗</span> missing → Data Gap Register</span>
         </div>
+      </div>
+
+      <div className="card" style={{ marginTop: 16 }}>
+        <h3>Data Gap Register ({gaps.filter((g) => g.status === "open").length} open)</h3>
+        {gaps.length === 0 ? (
+          <div className="muted-line">No gaps logged.</div>
+        ) : (
+          <table className="tbl">
+            <thead>
+              <tr><th>Scope</th><th>Item</th><th>Why needed</th><th>Source</th><th>Owner</th><th>Priority</th></tr>
+            </thead>
+            <tbody>
+              {gaps.map((g) => (
+                <tr key={g.id} style={{ opacity: g.status === "closed" ? 0.5 : 1 }}>
+                  <td>{g.sbuName ?? "Group"}</td>
+                  <td style={{ fontWeight: 700 }}>{g.item}</td>
+                  <td className="muted-line">{g.whyNeeded}</td>
+                  <td className="muted-line">{g.source}</td>
+                  <td>{g.owner}</td>
+                  <td><span className={`badge ${g.priority === "high" ? "Low" : g.priority === "medium" ? "Med" : "High"}`}>{g.priority}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );

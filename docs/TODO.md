@@ -31,5 +31,11 @@
 - [ ] Seed market_size (implied market size + growth assumption) ✅ done via seed:market
 
 ## Phase 4 — Decision Support Center (alerts, Decision Cards, what-if, decision log), Reports (MD pack PDF), ERP/MCP scheduled sync
+- [x] Alert engine (rules-based, live) + /api/alerts
+- [x] Decision Cards (list/create/transition approve·reject·assign·ask·done + audit log) + seed
+- [x] What-if simulator (share projection at a growth rate) + /api/whatif
+- [x] Reports: print-ready A4 MD pack + cockpit/coverage CSV export
+- [x] ERP sync: /api/sync/revenue + sync-erp.ts (live iBOSDDD sales-order pull → Postgres) + sync log
+- [x] Data Gap Register (seed + /api/datagaps + UI on Coverage page)
 
 ## Phase 5 — Hardening & handover (perf, security, a11y, backups, user/admin guides, data-update SOP, training) → deploy after confirmation

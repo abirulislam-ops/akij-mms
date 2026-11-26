@@ -111,6 +111,26 @@ app.get("/api/sync/log", requireAuth(), async (c) => {
   return c.json({ log: await getSyncLog() });
 });
 
+// Data Gap Register.
+app.get("/api/datagaps", requireAuth(), async (c) => {
+  const rows = await db
+    .select({
+      id: schema.dataGap.id,
+      sbuCode: schema.sbu.code,
+      sbuName: schema.sbu.name,
+      item: schema.dataGap.item,
+      whyNeeded: schema.dataGap.whyNeeded,
+      source: schema.dataGap.source,
+      owner: schema.dataGap.owner,
+      priority: schema.dataGap.priority,
+      status: schema.dataGap.status,
+    })
+    .from(schema.dataGap)
+    .leftJoin(schema.sbu, eq(schema.dataGap.sbuId, schema.sbu.id))
+    .orderBy(eq(schema.dataGap.status, "open"), schema.dataGap.priority);
+  return c.json({ gaps: rows });
+});
+
 // Market & Competition: group overview + SBU detail.
 app.get("/api/market", requireAuth(), async (c) => {
   return c.json({ sbus: await getMarketOverview() });
