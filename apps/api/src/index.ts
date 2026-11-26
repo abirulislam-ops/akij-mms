@@ -11,6 +11,8 @@ import { getSbuHub } from "./hub.js";
 import { getCoverage } from "./coverage.js";
 import { getMarketOverview, getMarketDetail } from "./market.js";
 import { getCompetitionOverview, getCompetitionDetail, addCompetitorActivity, upsertCompetitorProfile } from "./competition.js";
+import { getFramework } from "./framework.js";
+import { getPlaybook } from "./playbook.js";
 import { getBudgetOverview, getBudgetDetail } from "./budget.js";
 import { getStrategy } from "./strategy.js";
 import { getBrandHealth } from "./health.js";
@@ -175,6 +177,19 @@ app.get("/api/market/:code", requireAuth(), async (c) => {
   const detail = await getMarketDetail(code);
   if (!detail) return c.json({ error: "Not found" }, 404);
   return c.json(detail);
+});
+
+// Framework + KPI library (7 dimensions, weights, indices, 61 KPIs).
+app.get("/api/framework", requireAuth(), async (c) => {
+  return c.json(await getFramework());
+});
+
+// Brand Playbook: Where/How to Win, growth mechanism, activity→KPI matrix, YoY/QoQ ramp, digital benchmark.
+app.get("/api/playbook/:code", requireAuth(), async (c) => {
+  const code = c.req.param("code");
+  const data = code ? await getPlaybook(code) : null;
+  if (!data) return c.json({ error: "Not found" }, 404);
+  return c.json(data);
 });
 
 // Competition Intelligence: overview, SBU detail (registry + activities + impact), custodian inputs.

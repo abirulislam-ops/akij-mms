@@ -583,3 +583,46 @@ export const competitorActivity = pgTable(
     index("competitor_activity_brand_idx").on(t.brandId),
   ],
 );
+
+// ===========================================================================
+// Brand Playbook (Where to Play / How to Win · growth mechanism · activity→KPI)
+// ===========================================================================
+
+export const playbook = pgTable(
+  "playbook",
+  {
+    id: serial("id").primaryKey(),
+    sbuId: integer("sbu_id").notNull().references(() => sbu.id),
+    fy: text("fy").notNull(),
+    positioning: text("positioning"),
+    objectives: jsonb("objectives"), // [{ text, target, fy }]
+    wherePlay: jsonb("where_play"), // [{ segment }]
+    howWin: text("how_win"),
+    rightToWin: text("right_to_win"),
+    icp: jsonb("icp"), // [{ code, label }]
+    priorityKpis: jsonb("priority_kpis"), // [kpi code]
+    growthMechanism: jsonb("growth_mechanism"), // [{ lever, kpi, outcome, fourP, mode, elasticity }]
+    activityMatrix: jsonb("activity_matrix"), // [{ activity, kpis: string[], mode }]
+    insights: jsonb("insights"), // string[]
+    actions: jsonb("actions"), // string[]
+    updatedBy: text("updated_by"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("playbook_sbu_fy_idx").on(t.sbuId, t.fy)],
+);
+
+/** Digital brand strength — competitor benchmark (web presence). */
+export const digitalPresence = pgTable(
+  "digital_presence",
+  {
+    id: serial("id").primaryKey(),
+    brandId: integer("brand_id").notNull().references(() => brand.id),
+    periodId: text("period_id").notNull().references(() => fiscalPeriod.id),
+    website: text("website"),
+    socialChannels: integer("social_channels"),
+    contentDepth: text("content_depth"),
+    presenceScore: doublePrecision("presence_score"), // 0–5
+    source: text("source"),
+  },
+  (t) => [uniqueIndex("digital_presence_brand_period_idx").on(t.brandId, t.periodId)],
+);
