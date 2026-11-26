@@ -27,7 +27,7 @@ export default async function handler(req: import("node:http").IncomingMessage, 
     const response = await app.fetch(new Request(url, init));
 
     res.statusCode = response.status;
-    for (const [k, v] of response.headers.entries()) res.setHeader(k, v);
+    response.headers.forEach((v, k) => res.setHeader(k, v));
     const body = Buffer.from(await response.arrayBuffer());
     res.end(body);
   } catch (err) {
