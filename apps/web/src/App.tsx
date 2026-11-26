@@ -30,21 +30,24 @@ export default function App() {
 
   return (
     <>
+      <a className="skip-link" href="#main">Skip to content</a>
       <Topbar user={user} onSignOut={async () => { await signOut(); setUser(null); }} />
-      <Routes>
-        <Route path="/" element={<Cockpit />} />
-        <Route path="/sbu/:code" element={<Hub />} />
-        <Route path="/coverage" element={<Coverage />} />
-        <Route path="/market" element={<MarketOverview />} />
-        <Route path="/market/:code" element={<MarketDetail />} />
-        <Route path="/budget" element={<Budget />} />
-        <Route path="/fourp" element={<FourP />} />
-        <Route path="/health/:code" element={<Health />} />
-        <Route path="/strategy/:code" element={<Strategy />} />
-        <Route path="/decisions" element={<Decisions />} />
-        <Route path="/reports" element={<Reports />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <main id="main">
+        <Routes>
+          <Route path="/" element={<Cockpit />} />
+          <Route path="/sbu/:code" element={<Hub />} />
+          <Route path="/coverage" element={<Coverage />} />
+          <Route path="/market" element={<MarketOverview />} />
+          <Route path="/market/:code" element={<MarketDetail />} />
+          <Route path="/budget" element={<Budget />} />
+          <Route path="/fourp" element={<FourP />} />
+          <Route path="/health/:code" element={<Health />} />
+          <Route path="/strategy/:code" element={<Strategy />} />
+          <Route path="/decisions" element={<Decisions />} />
+          <Route path="/reports" element={<Reports />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </main>
     </>
   );
 }
@@ -56,7 +59,7 @@ function Topbar({ user, onSignOut }: { user: SessionUser; onSignOut: () => void 
       <span className="brand">
         AKIJ <b>Resource</b> <span style={{ fontWeight: 400, opacity: 0.7 }}>· MMS</span>
       </span>
-      <nav style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+      <nav style={{ display: "flex", gap: 8, flexWrap: "wrap" }} aria-label="Main navigation">
         <NavLink to="/" active={loc.pathname === "/"} label="Cockpit" />
         <NavLink to="/market" active={loc.pathname.startsWith("/market")} label="Market" />
         <NavLink to="/budget" active={loc.pathname === "/budget"} label="Budget" />

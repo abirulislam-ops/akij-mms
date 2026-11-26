@@ -100,7 +100,7 @@ export default function Cockpit() {
         <div className="card">
           <h3>Portfolio bubble matrix</h3>
           <div className="muted-line" style={{ marginBottom: 6 }}>X = revenue growth · Y = share change · size = revenue · colour = composite.</div>
-          <svg viewBox="0 0 440 300" style={{ width: "100%", height: "auto" }}>
+          <svg viewBox="0 0 440 300" style={{ width: "100%", height: "auto" }} role="img" aria-label="Portfolio bubble matrix: revenue growth vs share change">
             {/* axes */}
             <line x1={220} y1={20} x2={220} y2={280} stroke="var(--line)" />
             <line x1={20} y1={150} x2={420} y2={150} stroke="var(--line)" />

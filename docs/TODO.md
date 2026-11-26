@@ -39,3 +39,10 @@
 - [x] Data Gap Register (seed + /api/datagaps + UI on Coverage page)
 
 ## Phase 5 — Hardening & handover (perf, security, a11y, backups, user/admin guides, data-update SOP, training) → deploy after confirmation
+- [x] Security: restrict CORS to configured origin + input validation on mutation endpoints (whatif/sync/decisions)
+- [x] Accessibility: skip link, focus-visible, reduced-motion, SVG aria-labels, nav aria-label
+- [x] Documentation: README (accurate stack/setup) + UserGuide + AdminGuide + DataUpdateSOP
+- [x] Secrets: confirmed no .env files tracked (gitignored)
+- [ ] Backups (Neon PITR documented; optional nightly pg_dump)
+- [ ] Deploy to Vercel + Neon — awaiting explicit MD/CBDO confirmation
+- [ ] Known perf note: getCockpit does N+1 (13 SBUs × computeSbuIndices) — fine at 13, batch if SBU count grows

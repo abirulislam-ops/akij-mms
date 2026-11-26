@@ -39,7 +39,7 @@ export default function Health() {
 
       <div className="card" style={{ marginBottom: 16 }}>
         <h3>Awareness → advocacy funnel</h3>
-        <svg viewBox="0 0 700 180" style={{ width: "100%", height: "auto" }}>
+        <svg viewBox="0 0 700 180" style={{ width: "100%", height: "auto" }} role="img" aria-label={`Awareness to advocacy funnel for ${d.sbu.name}`}>
           {d.funnel.map((f, i) => {
             const w = Math.max(40, ((f.value ?? 0) / max) * 520);
             const y = 18 + i * 34;

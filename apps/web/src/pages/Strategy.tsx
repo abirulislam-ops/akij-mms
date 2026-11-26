@@ -40,7 +40,7 @@ export default function Strategy() {
 
       <div className="card" style={{ marginBottom: 16 }}>
         <h3>Revenue glide path (BDT Cr)</h3>
-        <svg viewBox="0 0 700 220" style={{ width: "100%", height: "auto" }}>
+        <svg viewBox="0 0 700 220" style={{ width: "100%", height: "auto" }} role="img" aria-label={`Revenue glide path for ${d.sbu.name}`}>
           <line x1={50} y1={180} x2={680} y2={180} stroke="var(--line)" />
           {pts.map((p, i) => {
             const x = 50 + i * ((680 - 50) / (pts.length - 1 || 1));

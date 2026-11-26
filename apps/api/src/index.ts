@@ -23,7 +23,18 @@ import { upsertRevenue, getSyncLog } from "./sync.js";
 
 const app = new Hono<{ Variables: AppVariables }>();
 
-app.use("*", cors());
+// CORS: restrict to the configured frontend origin (dev: Vite on 5173; prod: Vercel app).
+app.use(
+  "*",
+  cors({
+    origin: (origin) => {
+      const allowed = (process.env.CORS_ORIGIN ?? "http://localhost:5173").split(",").map((s) => s.trim());
+      if (!origin || allowed.includes("*")) return allowed[0];
+      return allowed.includes(origin) ? origin : allowed[0];
+    },
+    credentials: true,
+  }),
+);
 
 app.get("/health", (c) => c.json({ ok: true, service: "akij-mms-api" }));
 
@@ -69,12 +80,17 @@ app.get("/api/decisions", requireAuth(), async (c) => {
 });
 app.post("/api/decisions", requireAuth(), requireRole("SPA", "BRAND_CUSTODIAN", "SBU_HEAD"), async (c) => {
   const body = (await c.req.json()) as Parameters<typeof createDecision>[0];
+  if (!body?.title || !body.title.trim()) return c.json({ error: "title is required" }, 400);
   const id = await createDecision(body);
   return c.json({ id });
 });
 app.post("/api/decisions/:id/transition", requireAuth(), requireTier("admin"), async (c) => {
   const id = Number(c.req.param("id"));
-  const body = (await c.req.json()) as { action: DecisionAction; assignTo?: string };
+  if (!Number.isInteger(id)) return c.json({ error: "invalid id" }, 400);
+  const body = (await c.req.json()) as { action?: DecisionAction; assignTo?: string };
+  if (!body.action || !["approve", "reject", "assign", "ask", "done"].includes(body.action)) {
+    return c.json({ error: "invalid action" }, 400);
+  }
   const byUser = c.get("auth").email ?? "unknown";
   const result = await transitionDecision(id, body.action, byUser, body.assignTo);
   if (!result) return c.json({ error: "Not found" }, 404);
@@ -83,7 +99,11 @@ app.post("/api/decisions/:id/transition", requireAuth(), requireTier("admin"), a
 
 // What-if: project market share for a hypothetical brand revenue-growth rate.
 app.post("/api/whatif", requireAuth(), async (c) => {
-  const body = (await c.req.json()) as { code: string; brandGrowth: number };
+  const body = (await c.req.json()) as { code?: string; brandGrowth?: number };
+  if (!body.code || typeof body.code !== "string") return c.json({ error: "code is required" }, 400);
+  if (typeof body.brandGrowth !== "number" || !Number.isFinite(body.brandGrowth) || body.brandGrowth < -100 || body.brandGrowth > 1000) {
+    return c.json({ error: "brandGrowth must be a number between -100 and 1000" }, 400);
+  }
   const result = await whatIfShare(body.code, body.brandGrowth);
   if (!result) return c.json({ error: "Not found" }, 404);
   return c.json(result);
@@ -99,10 +119,15 @@ app.get("/api/export/coverage.csv", requireAuth(), async (c) => {
 
 // ERP sync: accept live revenue rows (from the iBOSDDD gateway) and upsert.
 app.post("/api/sync/revenue", requireAuth(), requireTier("admin"), async (c) => {
-  const body = (await c.req.json()) as { rows: { sbuCode: string; periodId: string; value: number; source?: string }[] };
+  const body = (await c.req.json()) as { rows?: { sbuCode?: string; periodId?: string; value?: number; source?: string }[] };
+  if (!Array.isArray(body.rows)) return c.json({ error: "rows must be an array" }, 400);
   const byUser = c.get("auth").email ?? "unknown";
   const results = [];
-  for (const r of body.rows ?? []) {
+  for (const r of body.rows) {
+    if (!r.sbuCode || !r.periodId || typeof r.value !== "number" || !Number.isFinite(r.value)) {
+      results.push({ ...r, status: "skip: invalid row (need sbuCode, periodId, numeric value)" });
+      continue;
+    }
     results.push(await upsertRevenue(r.sbuCode, r.periodId, r.value, r.source ?? "ERP/GL (iBOSDDD)", byUser));
   }
   return c.json({ results });
