@@ -10,6 +10,7 @@ import { getFreshness } from "./freshness.js";
 import { getSbuHub } from "./hub.js";
 import { getCoverage } from "./coverage.js";
 import { getMarketOverview, getMarketDetail } from "./market.js";
+import { getCompetitionOverview, getCompetitionDetail, addCompetitorActivity, upsertCompetitorProfile } from "./competition.js";
 import { getBudgetOverview, getBudgetDetail } from "./budget.js";
 import { getStrategy } from "./strategy.js";
 import { getBrandHealth } from "./health.js";
@@ -174,6 +175,45 @@ app.get("/api/market/:code", requireAuth(), async (c) => {
   const detail = await getMarketDetail(code);
   if (!detail) return c.json({ error: "Not found" }, 404);
   return c.json(detail);
+});
+
+// Competition Intelligence: overview, SBU detail (registry + activities + impact), custodian inputs.
+app.get("/api/competition", requireAuth(), async (c) => {
+  return c.json({ sbus: await getCompetitionOverview() });
+});
+app.get("/api/competition/:code", requireAuth(), async (c) => {
+  const code = c.req.param("code");
+  const detail = code ? await getCompetitionDetail(code) : null;
+  if (!detail) return c.json({ error: "Not found" }, 404);
+  return c.json(detail);
+});
+app.post("/api/competition/:code/activity", requireAuth(), requireRole("BRAND_CUSTODIAN", "SBU_HEAD", "SPA"), async (c) => {
+  const code = c.req.param("code");
+  const b = (await c.req.json()) as { brandId?: number; activityDate?: string; activityType?: string; channel?: string; spend?: number; reach?: number; priceChangePct?: number; message?: string; notes?: string };
+  const types = ["price_cut", "promotion", "tvc", "digital", "dealer_scheme", "new_product", "other"];
+  if (!code || !b?.brandId || !b?.activityDate || !b?.activityType || !types.includes(b.activityType)) {
+    return c.json({ error: "brandId, activityDate and a valid activityType are required" }, 400);
+  }
+  const byUser = c.get("auth").email ?? "unknown";
+  const res = await addCompetitorActivity(code, {
+    brandId: b.brandId!, activityDate: b.activityDate!, activityType: b.activityType!,
+    channel: b.channel, spend: b.spend, reach: b.reach, priceChangePct: b.priceChangePct,
+    message: b.message, notes: b.notes,
+  }, byUser);
+  if ("error" in res) return c.json({ error: res.error }, 400);
+  return c.json(res, 201);
+});
+app.post("/api/competition/:code/competitor", requireAuth(), requireRole("BRAND_CUSTODIAN", "SBU_HEAD", "SPA"), async (c) => {
+  const code = c.req.param("code");
+  const b = (await c.req.json()) as { brandId?: number; positioning?: string; threatLevel?: "low" | "med" | "high"; priceIndex?: number; strengths?: string; weaknesses?: string };
+  if (!code || !b?.brandId) return c.json({ error: "brandId is required" }, 400);
+  const byUser = c.get("auth").email ?? "unknown";
+  const res = await upsertCompetitorProfile(code, {
+    brandId: b.brandId!, positioning: b.positioning, threatLevel: b.threatLevel,
+    priceIndex: b.priceIndex, strengths: b.strengths, weaknesses: b.weaknesses,
+  }, byUser);
+  if ("error" in res) return c.json({ error: res.error }, 400);
+  return c.json(res);
 });
 
 // Budget & ROMI: group league table + SBU detail.

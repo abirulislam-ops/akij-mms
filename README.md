@@ -21,7 +21,7 @@ A dynamic, database-backed marketing decision platform for the **MD** and **CBDO
 ## Structure
 
 ```
-apps/web          # React frontend (Cockpit, SBU Hub, Market, Budget, 4P, Health, Strategy, Decisions, Reports, Coverage)
+apps/web          # React frontend (Cockpit, SBU Hub, Market, Competition, Budget, 4P, Health, Strategy, Decisions, Reports, Coverage)
 apps/api          # Hono API (auth, RBAC, scores, market, budget, alerts, decisions, sync, reports)
 packages/calc     # pure calculation engine (scoring, indices, reconciliation, ROMI, pacing)
 packages/schema   # Drizzle schema + migrations
@@ -62,6 +62,7 @@ npm run seed:campaigns  # campaigns (online/offline) from the AR Marketing sheet
 npm run seed:market     # implied market size + growth assumption
 npm run seed:decisions  # data-driven decision cards
 npm run seed:datagaps   # Data Gap Register
+npm run seed:competition # competitor profiles + activity log (Competition Intelligence)
 
 # 5. run
 npm run dev --workspace @akij-mms/api   # API on :8787

@@ -6,6 +6,7 @@ import Cockpit from "./pages/Cockpit";
 import Hub from "./pages/Hub";
 import Coverage from "./pages/Coverage";
 import MarketOverview, { MarketDetail } from "./pages/Market";
+import Competition, { CompetitionDetail } from "./pages/Competition";
 import Budget from "./pages/Budget";
 import FourP from "./pages/FourP";
 import Health from "./pages/Health";
@@ -39,6 +40,8 @@ export default function App() {
           <Route path="/coverage" element={<Coverage />} />
           <Route path="/market" element={<MarketOverview />} />
           <Route path="/market/:code" element={<MarketDetail />} />
+          <Route path="/competition" element={<Competition />} />
+          <Route path="/competition/:code" element={<CompetitionDetail />} />
           <Route path="/budget" element={<Budget />} />
           <Route path="/fourp" element={<FourP />} />
           <Route path="/health/:code" element={<Health />} />
@@ -62,6 +65,7 @@ function Topbar({ user, onSignOut }: { user: SessionUser; onSignOut: () => void 
       <nav style={{ display: "flex", gap: 8, flexWrap: "wrap" }} aria-label="Main navigation">
         <NavLink to="/" active={loc.pathname === "/"} label="Cockpit" />
         <NavLink to="/market" active={loc.pathname.startsWith("/market")} label="Market" />
+        <NavLink to="/competition" active={loc.pathname.startsWith("/competition")} label="Competition" />
         <NavLink to="/budget" active={loc.pathname === "/budget"} label="Budget" />
         <NavLink to="/fourp" active={loc.pathname === "/fourp"} label="4P" />
         <NavLink to="/health/ACCL" active={loc.pathname.startsWith("/health")} label="Health" />

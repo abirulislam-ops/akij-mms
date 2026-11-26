@@ -536,3 +536,50 @@ export const uploadBatch = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
 );
+
+// ===========================================================================
+// Competition intelligence
+// ===========================================================================
+
+/** Competitor profile (the registry detail beyond brand name/website). */
+export const competitorProfile = pgTable(
+  "competitor_profile",
+  {
+    id: serial("id").primaryKey(),
+    brandId: integer("brand_id").notNull().references(() => brand.id),
+    positioning: text("positioning"),
+    threatLevel: text("threat_level").$type<"low" | "med" | "high">().notNull().default("med"),
+    priceIndex: doublePrecision("price_index"), // vs category avg = 100
+    strengths: text("strengths"),
+    weaknesses: text("weaknesses"),
+    updatedBy: text("updated_by"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("competitor_profile_brand_idx").on(t.brandId)],
+);
+
+/** Custodian-entered competitor activity (the "what did they do" log). */
+export const competitorActivity = pgTable(
+  "competitor_activity",
+  {
+    id: serial("id").primaryKey(),
+    sbuId: integer("sbu_id").notNull().references(() => sbu.id),
+    brandId: integer("brand_id").notNull().references(() => brand.id),
+    activityDate: text("activity_date").notNull(), // YYYY-MM-DD
+    activityType: text("activity_type")
+      .$type<"price_cut" | "promotion" | "tvc" | "digital" | "dealer_scheme" | "new_product" | "other">()
+      .notNull(),
+    channel: text("channel"),
+    spend: numeric("spend", { precision: 18, scale: 2 }),
+    reach: doublePrecision("reach"), // 0..1
+    priceChangePct: doublePrecision("price_change_pct"), // e.g. -5
+    message: text("message"),
+    notes: text("notes"),
+    createdBy: text("created_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("competitor_activity_sbu_idx").on(t.sbuId),
+    index("competitor_activity_brand_idx").on(t.brandId),
+  ],
+);
