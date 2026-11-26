@@ -5,10 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
+    "bundle": "node bundle.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@akij-mms/schema": "*",
     "@hono/vercel": "^1.0.1",
     "dotenv": "^16.4.5",
     "drizzle-orm": "^0.45.4",

@@ -23,16 +23,17 @@ import { upsertRevenue, getSyncLog } from "./sync.js";
 
 const app = new Hono<{ Variables: AppVariables }>();
 
-// CORS: restrict to the configured frontend origin (dev: Vite on 5173; prod: Vercel app).
+// CORS: restrict to the configured frontend origin(s) (dev: Vite on 5173; prod: Vercel app).
+// Auth is a Bearer JWT in the Authorization header, so no cookies/credentials are needed.
 app.use(
   "*",
   cors({
     origin: (origin) => {
       const allowed = (process.env.CORS_ORIGIN ?? "http://localhost:5173").split(",").map((s) => s.trim());
-      if (!origin || allowed.includes("*")) return allowed[0];
+      if (allowed.includes("*")) return "*";
+      if (!origin) return allowed[0];
       return allowed.includes(origin) ? origin : allowed[0];
     },
-    credentials: true,
   }),
 );
 
