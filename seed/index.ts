@@ -2,7 +2,7 @@ import { config } from "dotenv";
 config({ path: ".env.local" });
 config({ path: ".env" });
 
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import * as schema from "@akij-mms/schema";
@@ -246,13 +246,17 @@ async function main() {
 
   // own brand + competitors + market share
   const cementBrandId = (
-    await db.insert(schema.brand).values({ sbuId: cementId, name: "Akij Cement", isOwn: true, isCompetitor: false }).returning({ id: schema.brand.id })
-  )[0].id;
+    await db.insert(schema.brand).values({ sbuId: cementId, name: "Akij Cement", isOwn: true, isCompetitor: false }).onConflictDoNothing().returning({ id: schema.brand.id })
+  )[0]?.id;
+  const cementBrandRow = cementBrandId ?? (await db.select({ id: schema.brand.id }).from(schema.brand).where(and(eq(schema.brand.sbuId, cementId), eq(schema.brand.name, "Akij Cement"))))[0].id;
   for (const [name, share] of CEMENT_COMPETITORS) {
-    const compBrandId = (await db.insert(schema.brand).values({ sbuId: cementId, name, isOwn: false, isCompetitor: true }).returning({ id: schema.brand.id }))[0].id;
-    await db.insert(schema.marketShare).values({ brandId: compBrandId, category: "Cement", periodId: "FY25-26", valueShare: share, isEstimate: false }).onConflictDoNothing();
+    const compBrandId = (
+      await db.insert(schema.brand).values({ sbuId: cementId, name, isOwn: false, isCompetitor: true }).onConflictDoNothing().returning({ id: schema.brand.id })
+    )[0]?.id;
+    const compBrandRow = compBrandId ?? (await db.select({ id: schema.brand.id }).from(schema.brand).where(and(eq(schema.brand.sbuId, cementId), eq(schema.brand.name, name))))[0].id;
+    await db.insert(schema.marketShare).values({ brandId: compBrandRow, category: "Cement", periodId: "FY25-26", valueShare: share, isEstimate: false }).onConflictDoNothing();
   }
-  await db.insert(schema.marketShare).values({ brandId: cementBrandId, category: "Cement", periodId: "FY25-26", valueShare: 4.51, isEstimate: false }).onConflictDoNothing();
+  await db.insert(schema.marketShare).values({ brandId: cementBrandRow, category: "Cement", periodId: "FY25-26", valueShare: 4.51, isEstimate: false }).onConflictDoNothing();
 
   // within-dimension totals for normalization
   const dimTotals: Record<string, number> = {};

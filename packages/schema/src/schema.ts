@@ -48,7 +48,10 @@ export const brand = pgTable(
     website: text("website"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("brand_sbu_idx").on(t.sbuId)],
+  (t) => [
+    index("brand_sbu_idx").on(t.sbuId),
+    uniqueIndex("brand_sbu_name_idx").on(t.sbuId, t.name),
+  ],
 );
 
 /** The 7 CBDO dimensions with default weights. */

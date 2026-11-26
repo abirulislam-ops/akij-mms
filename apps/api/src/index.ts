@@ -7,6 +7,7 @@ import { getUserRoles, requireRole } from "./rbac.js";
 import { computeSbuIndices, getCockpit } from "./scores.js";
 import { validateKpiActuals, commitKpiActuals, kpiActualsTemplate } from "./upload.js";
 import { getFreshness } from "./freshness.js";
+import { getSbuHub } from "./hub.js";
 
 const app = new Hono<{ Variables: AppVariables }>();
 
@@ -47,6 +48,17 @@ app.get("/api/sbus/:code", requireAuth(), async (c) => {
   if (!sbu) return c.json({ error: "Not found" }, 404);
   const indices = await computeSbuIndices(sbu.id);
   return c.json({ sbu: { code: sbu.code, name: sbu.name, category: sbu.category, custodian: sbu.custodian }, indices });
+});
+
+// SBU Brand Hub: full payload (indices, dimensions, KPIs, campaigns, market, revenue, budget, maturity).
+app.get("/api/sbus/:code/hub", requireAuth(), async (c) => {
+  const code = c.req.param("code");
+  if (!code) return c.json({ error: "Not found" }, 404);
+  const [sbu] = await db.select().from(schema.sbu).where(eq(schema.sbu.code, code));
+  if (!sbu) return c.json({ error: "Not found" }, 404);
+  const hub = await getSbuHub(sbu.id);
+  if (!hub) return c.json({ error: "Not found" }, 404);
+  return c.json(hub);
 });
 
 // Data Input Center: download the KPI-actual template.

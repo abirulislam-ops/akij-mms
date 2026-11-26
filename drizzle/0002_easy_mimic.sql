@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "brand_sbu_name_idx" ON "brand" USING btree ("sbu_id","name");
