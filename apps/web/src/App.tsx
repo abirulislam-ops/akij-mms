@@ -4,6 +4,7 @@ import { getSessionUser, signOut, type SessionUser } from "./lib/auth";
 import SignIn from "./pages/SignIn";
 import Cockpit from "./pages/Cockpit";
 import Hub from "./pages/Hub";
+import Coverage from "./pages/Coverage";
 
 export default function App() {
   const [user, setUser] = useState<SessionUser | null | undefined>(undefined);
@@ -26,6 +27,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Cockpit />} />
         <Route path="/sbu/:code" element={<Hub />} />
+        <Route path="/coverage" element={<Coverage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>
@@ -41,6 +43,7 @@ function Topbar({ user, onSignOut }: { user: SessionUser; onSignOut: () => void 
       </span>
       <nav style={{ display: "flex", gap: 8 }}>
         <Link to="/" style={{ color: loc.pathname === "/" ? "#c9a227" : "#fff", textDecoration: "none", fontWeight: 700 }}>Cockpit</Link>
+        <Link to="/coverage" style={{ color: loc.pathname === "/coverage" ? "#c9a227" : "#fff", textDecoration: "none", fontWeight: 700 }}>Coverage</Link>
       </nav>
       <span className="spacer" />
       <span style={{ fontSize: 12, opacity: 0.8 }}>{user.email}</span>

@@ -17,9 +17,9 @@
 - [x] Seed: KPI library (63 KPIs / 7 dims) + CBDO framework + 13 SBUs + fiscal periods + Cement (KPIs, targets, revenue, competitors, budget, maturity) — §8 fixes applied
 
 ## Phase 2 — SBU Brand Hub for all 13 SBUs
-- [ ] Generic hub driven by `sbu_id` (verify on Cement)
-- [ ] Seed every other SBU from its own sources (strategy, KPIs, targets, market/competitors, 4P, budget, campaigns)
-- [ ] Coverage table (SBU × module × data status) + approval
+- [x] Generic hub driven by `sbu_id` (verified on Cement)
+- [x] Seed every other SBU from its own sources (strategy, KPIs, targets, market/competitors, 4P, budget, campaigns)
+- [x] Coverage table (SBU × module × data status) + approval (estimate-approval workflow)
 
 ## Phase 3 — Executive Cockpit, Market & Competition, Budget & ROMI, Brand Health, 4P Studio, Strategy & Targets
 

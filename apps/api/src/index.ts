@@ -1,13 +1,14 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db, schema } from "./db.js";
 import { requireAuth, type AppVariables } from "./auth.js";
-import { getUserRoles, requireRole } from "./rbac.js";
+import { getUserRoles, requireRole, requireTier } from "./rbac.js";
 import { computeSbuIndices, getCockpit } from "./scores.js";
 import { validateKpiActuals, commitKpiActuals, kpiActualsTemplate } from "./upload.js";
 import { getFreshness } from "./freshness.js";
 import { getSbuHub } from "./hub.js";
+import { getCoverage } from "./coverage.js";
 
 const app = new Hono<{ Variables: AppVariables }>();
 
@@ -82,6 +83,41 @@ app.post("/api/upload/kpi-actuals", requireAuth(), requireRole("BRAND_CUSTODIAN"
 // Data freshness board.
 app.get("/api/freshness", requireAuth(), async (c) => {
   return c.json({ datasets: await getFreshness() });
+});
+
+// Group coverage table: SBU × module × data status (drives data-completeness approval).
+app.get("/api/coverage", requireAuth(), async (c) => {
+  return c.json(await getCoverage());
+});
+
+// Approve an SBU's estimate baselines → they enter official scores (moderator/admin only).
+// Writes an audit-log entry and flips isEstimate=false on the SBU's estimate KPIs.
+app.post("/api/sbus/:code/approve-estimates", requireAuth(), requireTier("admin"), async (c) => {
+  const code = c.req.param("code");
+  if (!code) return c.json({ error: "Not found" }, 404);
+  const byUser = c.get("auth").email ?? "unknown";
+  const [sbu] = await db.select().from(schema.sbu).where(eq(schema.sbu.code, code));
+  if (!sbu) return c.json({ error: "Not found" }, 404);
+
+  const estimates = await db
+    .select()
+    .from(schema.sbuKpi)
+    .where(and(eq(schema.sbuKpi.sbuId, sbu.id), eq(schema.sbuKpi.isEstimate, true), eq(schema.sbuKpi.active, true)));
+
+  if (!estimates.length) return c.json({ approved: 0, message: "No estimate baselines to approve" });
+
+  const ids = estimates.map((e) => e.id);
+  await db.update(schema.sbuKpi).set({ isEstimate: false }).where(inArray(schema.sbuKpi.id, ids));
+  await db.insert(schema.auditLog).values({
+    entity: "sbu_kpi",
+    entityId: sbu.code,
+    action: "approve",
+    before: { isEstimate: true },
+    after: { isEstimate: false },
+    byUser,
+  });
+
+  return c.json({ approved: estimates.length, message: `${estimates.length} estimate baseline(s) approved and now included in official scores` });
 });
 
 export default app;
