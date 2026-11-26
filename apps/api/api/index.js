@@ -7,7 +7,7 @@ var __export = (target, all) => {
 // src/index.ts
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { and as and11, eq as eq13, inArray as inArray9 } from "drizzle-orm";
+import { and as and11, eq as eq14, inArray as inArray9 } from "drizzle-orm";
 
 // src/db.ts
 import { config } from "dotenv";
@@ -1021,6 +1021,12 @@ async function getSbuHub(sbuId) {
   const actualBySbuKpi = new Map(actuals.map((a) => [a.sbuKpiId, a]));
   const targets = await db.select().from(src_exports.kpiTarget).where(and3(inArray2(src_exports.kpiTarget.sbuKpiId, sbuKpiIds), eq4(src_exports.kpiTarget.periodId, TARGET2)));
   const targetBySbuKpi = new Map(targets.map((t) => [t.sbuKpiId, t]));
+  const fyTargets = await db.select().from(src_exports.kpiTarget).where(and3(inArray2(src_exports.kpiTarget.sbuKpiId, sbuKpiIds), inArray2(src_exports.kpiTarget.periodId, FYS)));
+  const fyTargetsBySbuKpi = /* @__PURE__ */ new Map();
+  for (const t of fyTargets) {
+    if (!fyTargetsBySbuKpi.has(t.sbuKpiId)) fyTargetsBySbuKpi.set(t.sbuKpiId, /* @__PURE__ */ new Map());
+    fyTargetsBySbuKpi.get(t.sbuKpiId).set(t.periodId, Number(t.value));
+  }
   const dims = await db.select().from(src_exports.dimension);
   const dimById = new Map(dims.map((d) => [d.id, d]));
   const indices = await computeSbuIndices(sbuId);
@@ -1063,6 +1069,7 @@ async function getSbuHub(sbuId) {
       isEstimate: sk.isEstimate,
       actual: actual ? Number(actual.value) : null,
       target: target ? Number(target.value) : null,
+      targets: FYS.map((fy) => ({ period: fy, value: fyTargetsBySbuKpi.get(sk.id)?.get(fy) ?? null })),
       confidence: actual?.confidence ?? null,
       source: actual?.source ?? null,
       asOf: actual?.asOf ?? null,
@@ -1815,6 +1822,7 @@ async function transitionDecision(id, action, byUser, assignTo) {
 }
 
 // src/reports.ts
+import { eq as eq12 } from "drizzle-orm";
 function csvCell(v) {
   if (v == null) return "";
   const s = String(v);
@@ -1878,15 +1886,48 @@ async function exportCoverageCsv() {
   ];
   return lines.join("\r\n");
 }
+async function exportScorecardCsv(code) {
+  const [sbu2] = await db.select().from(src_exports.sbu).where(eq12(src_exports.sbu.code, code));
+  if (!sbu2) return null;
+  const hub = await getSbuHub(sbu2.id);
+  if (!hub) return null;
+  const lines = [
+    csvRow([`AKIJ Resource \u2014 MMS KPI Scorecard: ${hub.sbu.name}`, (/* @__PURE__ */ new Date()).toISOString().slice(0, 10)]),
+    csvRow([`CBDO framework \u2014 BEI = D1 \xB7 BHI = D2+D3+D6 \xB7 BPI = D4+D5+D7 \xB7 Composite = all 7`]),
+    csvRow([]),
+    csvRow(["KPI", "Dimension", "4P", "Unit", "Baseline (FY25-26)", ...hub.kpis[0]?.targets.map((t) => t.period) ?? [], "Attainment %", "Score (0-5)", "RAG", "Confidence", "Source"]),
+    ...hub.kpis.map(
+      (k) => csvRow([
+        k.name,
+        k.dimensionName,
+        k.fourP ?? "",
+        k.unit,
+        k.actual ?? "",
+        ...k.targets.map((t) => t.value ?? ""),
+        k.attainment != null ? `${(k.attainment * 100).toFixed(0)}%` : "",
+        k.score ?? "",
+        k.rag,
+        k.confidence ?? "",
+        k.source ?? ""
+      ])
+    ),
+    csvRow([]),
+    csvRow(["Index", "Score", "Coverage"]),
+    ...["BEI", "BHI", "BPI", "Composite"].map(
+      (ix) => csvRow([ix, hub.indices[ix].score?.toFixed(2) ?? "\u2014", `${(hub.indices[ix].coverage * 100).toFixed(0)}%`])
+    )
+  ];
+  return lines.join("\r\n");
+}
 
 // src/sync.ts
-import { and as and10, eq as eq12, desc as desc2 } from "drizzle-orm";
+import { and as and10, eq as eq13, desc as desc2 } from "drizzle-orm";
 async function upsertRevenue(sbuCode, periodId, value, source, byUser) {
-  const [sbu2] = await db.select().from(src_exports.sbu).where(eq12(src_exports.sbu.code, sbuCode));
+  const [sbu2] = await db.select().from(src_exports.sbu).where(eq13(src_exports.sbu.code, sbuCode));
   if (!sbu2) return { sbuCode, periodId, status: "skip: unknown SBU" };
-  const [existing] = await db.select().from(src_exports.revenueActual).where(and10(eq12(src_exports.revenueActual.sbuId, sbu2.id), eq12(src_exports.revenueActual.periodId, periodId)));
+  const [existing] = await db.select().from(src_exports.revenueActual).where(and10(eq13(src_exports.revenueActual.sbuId, sbu2.id), eq13(src_exports.revenueActual.periodId, periodId)));
   if (existing) {
-    await db.update(src_exports.revenueActual).set({ value: String(value), source, asOf: (/* @__PURE__ */ new Date()).toISOString().slice(0, 10) }).where(eq12(src_exports.revenueActual.id, existing.id));
+    await db.update(src_exports.revenueActual).set({ value: String(value), source, asOf: (/* @__PURE__ */ new Date()).toISOString().slice(0, 10) }).where(eq13(src_exports.revenueActual.id, existing.id));
     await db.insert(src_exports.auditLog).values({ entity: "revenue_actual", entityId: `${sbuCode}/${periodId}`, action: "update", before: { value: Number(existing.value) }, after: { value, source }, byUser });
     return { sbuCode, periodId, status: "updated" };
   }
@@ -1895,7 +1936,7 @@ async function upsertRevenue(sbuCode, periodId, value, source, byUser) {
   return { sbuCode, periodId, status: "created" };
 }
 async function getSyncLog(limit = 50) {
-  return db.select().from(src_exports.auditLog).where(eq12(src_exports.auditLog.entity, "revenue_actual")).orderBy(desc2(src_exports.auditLog.createdAt)).limit(limit);
+  return db.select().from(src_exports.auditLog).where(eq13(src_exports.auditLog.entity, "revenue_actual")).orderBy(desc2(src_exports.auditLog.createdAt)).limit(limit);
 }
 
 // src/index.ts
@@ -1973,6 +2014,13 @@ app.get("/api/export/cockpit.csv", requireAuth(), async (c) => {
 app.get("/api/export/coverage.csv", requireAuth(), async (c) => {
   return c.text(await exportCoverageCsv(), 200, { "Content-Type": "text/csv; charset=utf-8" });
 });
+app.get("/api/export/scorecard/:code", requireAuth(), async (c) => {
+  const code = c.req.param("code");
+  if (!code) return c.json({ error: "Not found" }, 404);
+  const csv = await exportScorecardCsv(code);
+  if (csv == null) return c.json({ error: "Not found" }, 404);
+  return c.text(csv, 200, { "Content-Type": "text/csv; charset=utf-8" });
+});
 app.post("/api/sync/revenue", requireAuth(), requireTier("admin"), async (c) => {
   const body = await c.req.json();
   if (!Array.isArray(body.rows)) return c.json({ error: "rows must be an array" }, 400);
@@ -2001,7 +2049,7 @@ app.get("/api/datagaps", requireAuth(), async (c) => {
     owner: src_exports.dataGap.owner,
     priority: src_exports.dataGap.priority,
     status: src_exports.dataGap.status
-  }).from(src_exports.dataGap).leftJoin(src_exports.sbu, eq13(src_exports.dataGap.sbuId, src_exports.sbu.id)).orderBy(eq13(src_exports.dataGap.status, "open"), src_exports.dataGap.priority);
+  }).from(src_exports.dataGap).leftJoin(src_exports.sbu, eq14(src_exports.dataGap.sbuId, src_exports.sbu.id)).orderBy(eq14(src_exports.dataGap.status, "open"), src_exports.dataGap.priority);
   return c.json({ gaps: rows });
 });
 app.get("/api/market", requireAuth(), async (c) => {
@@ -2051,7 +2099,7 @@ app.get("/api/fourp/:code", requireAuth(), async (c) => {
 app.get("/api/sbus/:code", requireAuth(), async (c) => {
   const code = c.req.param("code");
   if (!code) return c.json({ error: "Not found" }, 404);
-  const [sbu2] = await db.select().from(src_exports.sbu).where(eq13(src_exports.sbu.code, code));
+  const [sbu2] = await db.select().from(src_exports.sbu).where(eq14(src_exports.sbu.code, code));
   if (!sbu2) return c.json({ error: "Not found" }, 404);
   const indices = await computeSbuIndices(sbu2.id);
   return c.json({ sbu: { code: sbu2.code, name: sbu2.name, category: sbu2.category, custodian: sbu2.custodian }, indices });
@@ -2059,7 +2107,7 @@ app.get("/api/sbus/:code", requireAuth(), async (c) => {
 app.get("/api/sbus/:code/hub", requireAuth(), async (c) => {
   const code = c.req.param("code");
   if (!code) return c.json({ error: "Not found" }, 404);
-  const [sbu2] = await db.select().from(src_exports.sbu).where(eq13(src_exports.sbu.code, code));
+  const [sbu2] = await db.select().from(src_exports.sbu).where(eq14(src_exports.sbu.code, code));
   if (!sbu2) return c.json({ error: "Not found" }, 404);
   const hub = await getSbuHub(sbu2.id);
   if (!hub) return c.json({ error: "Not found" }, 404);
@@ -2087,9 +2135,9 @@ app.post("/api/sbus/:code/approve-estimates", requireAuth(), requireTier("admin"
   const code = c.req.param("code");
   if (!code) return c.json({ error: "Not found" }, 404);
   const byUser = c.get("auth").email ?? "unknown";
-  const [sbu2] = await db.select().from(src_exports.sbu).where(eq13(src_exports.sbu.code, code));
+  const [sbu2] = await db.select().from(src_exports.sbu).where(eq14(src_exports.sbu.code, code));
   if (!sbu2) return c.json({ error: "Not found" }, 404);
-  const estimates = await db.select().from(src_exports.sbuKpi).where(and11(eq13(src_exports.sbuKpi.sbuId, sbu2.id), eq13(src_exports.sbuKpi.isEstimate, true), eq13(src_exports.sbuKpi.active, true)));
+  const estimates = await db.select().from(src_exports.sbuKpi).where(and11(eq14(src_exports.sbuKpi.sbuId, sbu2.id), eq14(src_exports.sbuKpi.isEstimate, true), eq14(src_exports.sbuKpi.active, true)));
   if (!estimates.length) return c.json({ approved: 0, message: "No estimate baselines to approve" });
   const ids = estimates.map((e) => e.id);
   await db.update(src_exports.sbuKpi).set({ isEstimate: false }).where(inArray9(src_exports.sbuKpi.id, ids));

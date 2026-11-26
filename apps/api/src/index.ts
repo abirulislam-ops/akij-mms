@@ -18,7 +18,7 @@ import { getPortfolio } from "./analytics.js";
 import { runAlertEngine } from "./alerts.js";
 import { getDecisions, createDecision, transitionDecision, type DecisionAction } from "./decisions.js";
 import { whatIfShare } from "./market.js";
-import { exportCockpitCsv, exportCoverageCsv } from "./reports.js";
+import { exportCockpitCsv, exportCoverageCsv, exportScorecardCsv } from "./reports.js";
 import { upsertRevenue, getSyncLog } from "./sync.js";
 
 const app = new Hono<{ Variables: AppVariables }>();
@@ -116,6 +116,13 @@ app.get("/api/export/cockpit.csv", requireAuth(), async (c) => {
 });
 app.get("/api/export/coverage.csv", requireAuth(), async (c) => {
   return c.text(await exportCoverageCsv(), 200, { "Content-Type": "text/csv; charset=utf-8" });
+});
+app.get("/api/export/scorecard/:code", requireAuth(), async (c) => {
+  const code = c.req.param("code");
+  if (!code) return c.json({ error: "Not found" }, 404);
+  const csv = await exportScorecardCsv(code);
+  if (csv == null) return c.json({ error: "Not found" }, 404);
+  return c.text(csv, 200, { "Content-Type": "text/csv; charset=utf-8" });
 });
 
 // ERP sync: accept live revenue rows (from the iBOSDDD gateway) and upsert.

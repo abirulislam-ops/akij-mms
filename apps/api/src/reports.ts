@@ -1,5 +1,8 @@
 import { getPortfolio } from "./analytics.js";
 import { getCoverage } from "./coverage.js";
+import { getSbuHub } from "./hub.js";
+import { db, schema } from "./db.js";
+import { eq } from "drizzle-orm";
 
 function csvCell(v: unknown): string {
   if (v == null) return "";
@@ -64,6 +67,42 @@ export async function exportCoverageCsv(): Promise<string> {
         s.missingCount,
         `${(s.completeness * 100).toFixed(0)}%`,
       ]),
+    ),
+  ];
+  return lines.join("\r\n");
+}
+
+/** KPI Scorecard CSV export for one SBU (baseline + FY1–FY5 targets + score). */
+export async function exportScorecardCsv(code: string): Promise<string | null> {
+  const [sbu] = await db.select().from(schema.sbu).where(eq(schema.sbu.code, code));
+  if (!sbu) return null;
+  const hub = await getSbuHub(sbu.id);
+  if (!hub) return null;
+
+  const lines = [
+    csvRow([`AKIJ Resource — MMS KPI Scorecard: ${hub.sbu.name}`, new Date().toISOString().slice(0, 10)]),
+    csvRow([`CBDO framework — BEI = D1 · BHI = D2+D3+D6 · BPI = D4+D5+D7 · Composite = all 7`]),
+    csvRow([]),
+    csvRow(["KPI", "Dimension", "4P", "Unit", "Baseline (FY25-26)", ...hub.kpis[0]?.targets.map((t) => t.period) ?? [], "Attainment %", "Score (0-5)", "RAG", "Confidence", "Source"]),
+    ...hub.kpis.map((k) =>
+      csvRow([
+        k.name,
+        k.dimensionName,
+        k.fourP ?? "",
+        k.unit,
+        k.actual ?? "",
+        ...k.targets.map((t) => t.value ?? ""),
+        k.attainment != null ? `${(k.attainment * 100).toFixed(0)}%` : "",
+        k.score ?? "",
+        k.rag,
+        k.confidence ?? "",
+        k.source ?? "",
+      ]),
+    ),
+    csvRow([]),
+    csvRow(["Index", "Score", "Coverage"]),
+    ...(["BEI", "BHI", "BPI", "Composite"] as const).map((ix) =>
+      csvRow([ix, hub.indices[ix].score?.toFixed(2) ?? "—", `${(hub.indices[ix].coverage * 100).toFixed(0)}%`]),
     ),
   ];
   return lines.join("\r\n");

@@ -35,6 +35,17 @@ export async function getSbuHub(sbuId: number) {
     .where(and(inArray(schema.kpiTarget.sbuKpiId, sbuKpiIds), eq(schema.kpiTarget.periodId, TARGET)));
   const targetBySbuKpi = new Map(targets.map((t) => [t.sbuKpiId, t]));
 
+  // all 5 FY targets (FY26-27 .. FY30-31) for the KPI Scorecard detail view
+  const fyTargets = await db
+    .select()
+    .from(schema.kpiTarget)
+    .where(and(inArray(schema.kpiTarget.sbuKpiId, sbuKpiIds), inArray(schema.kpiTarget.periodId, FYS)));
+  const fyTargetsBySbuKpi = new Map<number, Map<string, number>>();
+  for (const t of fyTargets) {
+    if (!fyTargetsBySbuKpi.has(t.sbuKpiId)) fyTargetsBySbuKpi.set(t.sbuKpiId, new Map());
+    fyTargetsBySbuKpi.get(t.sbuKpiId)!.set(t.periodId, Number(t.value));
+  }
+
   const dims = await db.select().from(schema.dimension);
   const dimById = new Map(dims.map((d) => [d.id, d]));
 
@@ -87,6 +98,7 @@ export async function getSbuHub(sbuId: number) {
       isEstimate: sk.isEstimate,
       actual: actual ? Number(actual.value) : null,
       target: target ? Number(target.value) : null,
+      targets: FYS.map((fy) => ({ period: fy, value: fyTargetsBySbuKpi.get(sk.id)?.get(fy) ?? null })),
       confidence: actual?.confidence ?? null,
       source: actual?.source ?? null,
       asOf: actual?.asOf ?? null,

@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import { apiFetch } from "../lib/api";
+import { getToken } from "../lib/auth";
 
 type Rag = "green" | "amber" | "red" | "grey";
 
@@ -28,6 +29,7 @@ interface KpiRow {
   isEstimate: boolean;
   actual: number | null;
   target: number | null;
+  targets: { period: string; value: number | null }[];
   confidence: string | null;
   source: string | null;
   asOf: string | null;
@@ -141,15 +143,15 @@ export default function Hub() {
       </div>
 
       <div className="tabs">
-        {["overview", "brand-health", "market", "campaigns", "4p", "maturity"].map((t) => (
+        {["overview", "scorecard", "market", "campaigns", "4p", "maturity"].map((t) => (
           <button key={t} className={`tab ${tab === t ? "active" : ""}`} onClick={() => setTab(t)}>
-            {t === "brand-health" ? "Brand Health" : t === "4p" ? "4P Studio" : t.charAt(0).toUpperCase() + t.slice(1)}
+            {t === "scorecard" ? "KPI Scorecard" : t === "4p" ? "4P Studio" : t.charAt(0).toUpperCase() + t.slice(1)}
           </button>
         ))}
       </div>
 
       {tab === "overview" && <Overview d={d} />}
-      {tab === "brand-health" && <BrandHealth d={d} />}
+      {tab === "scorecard" && <Scorecard d={d} />}
       {tab === "market" && <Market d={d} />}
       {tab === "campaigns" && <Campaigns d={d} sub={sub} setSub={setSub} />}
       {tab === "4p" && <FourP d={d} />}
@@ -200,46 +202,81 @@ function Overview({ d }: { d: HubData }) {
   );
 }
 
-function BrandHealth({ d }: { d: HubData }) {
-  const byDim = useMemo(() => {
-    const m = new Map<string, KpiRow[]>();
-    for (const k of d.kpis) {
-      const arr = m.get(k.dimension) ?? [];
-      arr.push(k);
-      m.set(k.dimension, arr);
+function Scorecard({ d }: { d: HubData }) {
+  const periods = d.kpis[0]?.targets.map((t) => t.period) ?? [];
+  const [exporting, setExporting] = useState(false);
+
+  async function downloadCsv() {
+    setExporting(true);
+    try {
+      const token = await getToken();
+      const base = import.meta.env.VITE_API_URL ?? "";
+      const res = await fetch(`${base}/api/export/scorecard/${d.sbu.code}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) { alert(`Export failed: ${res.status}`); return; }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${d.sbu.code}-kpi-scorecard.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setExporting(false);
     }
-    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-  }, [d.kpis]);
+  }
 
   return (
-    <div className="grid" style={{ gap: 16 }}>
-      {byDim.map(([dim, kpis]) => (
-        <div className="card" key={dim}>
-          <h3>{kpis[0].dimensionName}</h3>
-          <table className="tbl">
-            <thead>
-              <tr><th>KPI</th><th className="num">Actual</th><th className="num">Target</th><th className="num">Attainment</th><th className="num">Score</th><th>Status</th><th>Confidence</th></tr>
-            </thead>
-            <tbody>
-              {kpis.map((k) => (
-                <tr key={k.code}>
-                  <td>
-                    <span style={{ fontWeight: 700 }}>{k.name}</span>
-                    {k.isEstimate && <span className="badge Estimate" style={{ marginLeft: 6 }}>Estimate</span>}
-                    <div className="muted-line">{k.unit} · {k.fourP ?? "—"}</div>
-                  </td>
-                  <td className="num mono">{fmt(k.actual)}</td>
-                  <td className="num mono">{fmt(k.target)}</td>
-                  <td className="num mono">{k.attainment == null ? "—" : `${(k.attainment * 100).toFixed(0)}%`}</td>
-                  <td className="num">{k.score == null ? "—" : k.score}</td>
-                  <td><span className="rag" style={{ color: RAG_COLOR[k.rag] }}>{RAG_LABEL[k.rag]}</span></td>
-                  <td>{k.confidence ? <span className={`badge ${k.confidence}`}>{k.confidence}</span> : "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+        <div className="muted-line">
+          {d.kpis.length} active KPIs · baseline (FY25-26) → FY26-31 targets · score is actual vs FY26-27 target (0–5).
         </div>
-      ))}
+        <button className="btn" onClick={downloadCsv} disabled={exporting}>{exporting ? "Exporting…" : "Download CSV"}</button>
+      </div>
+
+      <div className="card" style={{ overflowX: "auto" }}>
+        <table className="tbl">
+          <thead>
+            <tr>
+              <th>KPI</th>
+              <th>Dimension</th>
+              <th>4P</th>
+              <th className="num">Baseline</th>
+              {periods.map((p) => <th key={p} className="num">{p}</th>)}
+              <th className="num">Attainment</th>
+              <th className="num">Score</th>
+              <th>Status</th>
+              <th>Confidence</th>
+            </tr>
+          </thead>
+          <tbody>
+            {d.kpis.map((k) => (
+              <tr key={k.code}>
+                <td>
+                  <span style={{ fontWeight: 700 }}>{k.name}</span>
+                  {k.isEstimate && <span className="badge Estimate" style={{ marginLeft: 6 }}>Estimate</span>}
+                  <div className="muted-line">{k.unit}</div>
+                </td>
+                <td className="muted-line">{k.dimensionName}</td>
+                <td>{k.fourP ?? "—"}</td>
+                <td className="num mono">{fmt(k.actual)}</td>
+                {k.targets.map((t) => (
+                  <td key={t.period} className="num mono">{t.value == null ? "—" : fmt(t.value)}</td>
+                ))}
+                <td className="num mono">{k.attainment == null ? "—" : `${(k.attainment * 100).toFixed(0)}%`}</td>
+                <td className="num" style={{ color: shareColor(k.score) }}>{k.score == null ? "—" : k.score}</td>
+                <td><span className="rag" style={{ color: RAG_COLOR[k.rag] }}>{RAG_LABEL[k.rag]}</span></td>
+                <td>{k.confidence ? <span className={`badge ${k.confidence}`}>{k.confidence}</span> : "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="muted-line" style={{ marginTop: 10 }}>
+          Baseline = FY25-26 actual · FY columns are targets · "Estimate" KPIs (hatched) are excluded from official scores until approved.
+        </div>
+      </div>
     </div>
   );
 }
