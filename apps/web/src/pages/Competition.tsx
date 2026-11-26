@@ -73,6 +73,7 @@ interface RegistryRow {
   brandId: number; name: string; own: boolean; share: number | null; isEstimate: boolean;
   positioning: string | null; threatLevel: "low" | "med" | "high"; priceIndex: number | null;
   strengths: string | null; weaknesses: string | null;
+  metrics?: Record<string, number | null>;
 }
 interface Impact {
   threatScore: number; threatLevel: "low" | "med" | "high"; ourShareDeltaPp: number; theirShareDeltaPp: number;
@@ -109,6 +110,7 @@ export function CompetitionDetail() {
 
   const [a, setA] = useState({ brandId: "", activityType: "price_cut", activityDate: new Date().toISOString().slice(0, 10), channel: "", spend: "", reach: "", priceChangePct: "", message: "" });
   const [p, setP] = useState({ brandId: "", positioning: "", threatLevel: "med", priceIndex: "", strengths: "", weaknesses: "" });
+  const [mt, setMt] = useState({ brandId: "", periodId: "FY25-26", metric: "sov", value: "", source: "" });
 
   if (isLoading) return <div style={{ padding: 32 }}>Loading {code}…</div>;
   if (error || !data) return <div style={{ padding: 32, color: "var(--red)" }}>{String(error ?? "Not found")}</div>;
@@ -149,6 +151,19 @@ export function CompetitionDetail() {
     } catch (err) { setMsg(String(err)); } finally { setBusy(false); }
   }
 
+  async function submitMetric(e: FormEvent) {
+    e.preventDefault();
+    if (!mt.brandId) { setMsg("Pick a competitor"); return; }
+    setBusy(true); setMsg(null);
+    try {
+      await apiPost(`/api/competition/${code}/metric`, { brandId: Number(mt.brandId), periodId: mt.periodId, metric: mt.metric, value: Number(mt.value), source: mt.source || undefined });
+      await qc.invalidateQueries({ queryKey: ["competition", code] });
+      await qc.invalidateQueries({ queryKey: ["competition"] });
+      setMsg("Metric absorbed into the repository.");
+      setMt({ ...mt, brandId: "", value: "", source: "" });
+    } catch (err) { setMsg(String(err)); } finally { setBusy(false); }
+  }
+
   return (
     <div style={{ maxWidth: 1300, margin: "0 auto", padding: 24 }}>
       <div style={{ marginBottom: 8 }}>
@@ -186,6 +201,52 @@ export function CompetitionDetail() {
           </tbody>
         </table>
       </div>
+
+      <h2 style={{ fontSize: 15, margin: "10px 0 8px" }}>Intelligence repository — metrics</h2>
+      <div className="card" style={{ overflowX: "auto", marginBottom: 16 }}>
+        <table className="tbl">
+          <thead><tr><th>Competitor</th><th className="num">Share %</th><th className="num">SOV %</th><th className="num">Share of search %</th><th className="num">Price index</th><th className="num">Digital /5</th></tr></thead>
+          <tbody>
+            {data.registry.filter((r) => !r.own).map((r) => (
+              <tr key={r.brandId}>
+                <td style={{ fontWeight: 700 }}>{r.name}</td>
+                <td className="num mono">{r.metrics?.share ?? r.share ?? "—"}</td>
+                <td className="num mono">{r.metrics?.sov ?? "—"}</td>
+                <td className="num mono">{r.metrics?.share_of_search ?? "—"}</td>
+                <td className="num mono">{r.metrics?.price_index ?? "—"}</td>
+                <td className="num mono">{r.metrics?.digital_presence ?? "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="muted-line" style={{ padding: "8px 12px" }}>Absorbed from custodian input / uploads — these values feed the competition overview and SOV/SOM flags.</p>
+      </div>
+
+      <form className="card" style={{ padding: 16, marginBottom: 16 }} onSubmit={submitMetric}>
+        <h3 style={{ fontSize: 14, marginTop: 0 }}>Add / update competitor metric (repository)</h3>
+        <div className="grid3" style={{ gap: 8 }}>
+          <div className="field"><label>Competitor</label>
+            <select value={mt.brandId} onChange={(e) => setMt({ ...mt, brandId: e.target.value })} required>
+              <option value="">Select…</option>
+              {competitors.map((c) => <option key={c.brandId} value={c.brandId}>{c.name}</option>)}
+            </select>
+          </div>
+          <div className="field"><label>Metric</label>
+            <select value={mt.metric} onChange={(e) => setMt({ ...mt, metric: e.target.value })}>
+              <option value="sov">SOV %</option><option value="share">Share %</option><option value="share_of_search">Share of search %</option>
+              <option value="price_index">Price index</option><option value="digital_presence">Digital /5</option>
+            </select>
+          </div>
+          <div className="field"><label>Period</label>
+            <select value={mt.periodId} onChange={(e) => setMt({ ...mt, periodId: e.target.value })}><option>FY25-26</option><option>FY26-27</option></select>
+          </div>
+        </div>
+        <div className="grid2" style={{ gap: 8 }}>
+          <div className="field"><label>Value</label><input type="number" step="any" value={mt.value} onChange={(e) => setMt({ ...mt, value: e.target.value })} required /></div>
+          <div className="field"><label>Source</label><input value={mt.source} onChange={(e) => setMt({ ...mt, source: e.target.value })} placeholder="e.g. retail audit / web" /></div>
+        </div>
+        <button className="btn gold" disabled={busy}>{busy ? "Saving…" : "Save metric"}</button>
+      </form>
 
       <h2 style={{ fontSize: 15, margin: "10px 0 8px" }}>Competitor activity &amp; impact</h2>
       <div className="card" style={{ overflowX: "auto", marginBottom: 16 }}>

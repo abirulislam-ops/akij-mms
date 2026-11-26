@@ -10,7 +10,7 @@ import { getFreshness } from "./freshness.js";
 import { getSbuHub } from "./hub.js";
 import { getCoverage } from "./coverage.js";
 import { getMarketOverview, getMarketDetail } from "./market.js";
-import { getCompetitionOverview, getCompetitionDetail, addCompetitorActivity, upsertCompetitorProfile } from "./competition.js";
+import { getCompetitionOverview, getCompetitionDetail, addCompetitorActivity, upsertCompetitorProfile, addCompetitorMetric } from "./competition.js";
 import { getFramework } from "./framework.js";
 import { getPlaybook } from "./playbook.js";
 import { getSbuMeasure, saveSbuMeasure } from "./measure.js";
@@ -216,6 +216,17 @@ app.post("/api/competition/:code/activity", requireAuth(), requireRole("BRAND_CU
     channel: b.channel, spend: b.spend, reach: b.reach, priceChangePct: b.priceChangePct,
     message: b.message, notes: b.notes,
   }, byUser);
+  if ("error" in res) return c.json({ error: res.error }, 400);
+  return c.json(res, 201);
+});
+app.post("/api/competition/:code/metric", requireAuth(), requireRole("BRAND_CUSTODIAN", "SBU_HEAD", "SPA"), async (c) => {
+  const code = c.req.param("code");
+  const b = (await c.req.json()) as { brandId?: number; periodId?: string; metric?: string; value?: number; unit?: string; source?: string };
+  if (!code || !b?.brandId || !b?.periodId || !b?.metric || typeof b?.value !== "number") {
+    return c.json({ error: "brandId, periodId, metric and numeric value are required" }, 400);
+  }
+  const byUser = c.get("auth").email ?? "unknown";
+  const res = await addCompetitorMetric(code, { brandId: b.brandId, periodId: b.periodId, metric: b.metric as never, value: b.value, unit: b.unit, source: b.source }, byUser);
   if ("error" in res) return c.json({ error: res.error }, 400);
   return c.json(res, 201);
 });

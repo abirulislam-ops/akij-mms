@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { db, schema } from "./db.js";
 import { assessActivity, competitionHHI, ACTIVITY_LABEL, type CompetitorActivityType } from "@akij-mms/calc";
 
@@ -131,10 +131,22 @@ export async function getCompetitionDetail(code: string) {
     projectedTheirDeltaPp: Math.round(activities.reduce((s, a) => s + a.impact.theirShareDeltaPp, 0) * 100) / 100,
   };
 
+  const brandIds = rows.map((r) => r.brandId);
+  const metricRows = brandIds.length ? await db.select().from(schema.competitorMetric).where(inArray(schema.competitorMetric.brandId, brandIds)) : [];
+  const metricByBrand = new Map<number, Record<string, number>>();
+  for (const m of metricRows) {
+    const o = metricByBrand.get(m.brandId) ?? {};
+    o[m.metric] = Number(m.value);
+    metricByBrand.set(m.brandId, o);
+  }
+  const registry = rows
+    .map((r) => ({ ...r, metrics: metricByBrand.get(r.brandId) ?? {} }))
+    .sort((a, b) => (b.own ? 1 : 0) - (a.own ? 1 : 0) || (b.share ?? 0) - (a.share ?? 0));
+
   return {
     sbu: { code: sbu.code, name: sbu.name, category: sbu.category },
     ownShare: own?.share ?? null,
-    registry: rows.sort((a, b) => (b.own ? 1 : 0) - (a.own ? 1 : 0) || (b.share ?? 0) - (a.share ?? 0)),
+    registry,
     hhi: competitionHHI(rows.map((r) => r.share ?? 0).filter((v) => v > 0)),
     activities,
     aggregate,
@@ -187,6 +199,42 @@ export async function addCompetitorActivity(
     byUser,
   });
   return { id: row.id };
+}
+
+const METRICS = ["share", "sov", "share_of_search", "price_index", "digital_presence"] as const;
+export type CompetitorMetricName = (typeof METRICS)[number];
+
+export async function addCompetitorMetric(
+  code: string,
+  body: { brandId: number; periodId: string; metric: CompetitorMetricName; value: number; unit?: string; source?: string },
+  byUser: string,
+) {
+  const sbu = await loadSbu(code);
+  if (!sbu) return { error: "Not found" as const };
+  if (!METRICS.includes(body.metric)) return { error: "invalid metric" as const };
+  const [brand] = await db.select().from(schema.brand).where(and(eq(schema.brand.id, body.brandId), eq(schema.brand.sbuId, sbu.id))).limit(1);
+  if (!brand) return { error: "Competitor brand not found for this SBU" as const };
+
+  const [existing] = await db
+    .select()
+    .from(schema.competitorMetric)
+    .where(and(eq(schema.competitorMetric.brandId, body.brandId), eq(schema.competitorMetric.periodId, body.periodId), eq(schema.competitorMetric.metric, body.metric)))
+    .limit(1);
+
+  if (existing) {
+    await db.update(schema.competitorMetric).set({ value: body.value, unit: body.unit, source: body.source, enteredBy: byUser }).where(eq(schema.competitorMetric.id, existing.id));
+  } else {
+    await db.insert(schema.competitorMetric).values({
+      brandId: body.brandId, periodId: body.periodId, metric: body.metric, value: body.value,
+      unit: body.unit, source: body.source, isEstimate: false, enteredBy: byUser,
+    });
+  }
+  await db.insert(schema.auditLog).values({
+    entity: "competitor_metric", entityId: `${code}/${body.brandId}/${body.metric}/${body.periodId}`,
+    action: existing ? "update" : "create", before: existing ? { value: Number(existing.value) } : null,
+    after: { value: body.value }, byUser,
+  });
+  return { ok: true };
 }
 
 export async function upsertCompetitorProfile(

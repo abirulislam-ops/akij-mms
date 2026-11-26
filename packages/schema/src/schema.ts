@@ -626,3 +626,23 @@ export const digitalPresence = pgTable(
   },
   (t) => [uniqueIndex("digital_presence_brand_period_idx").on(t.brandId, t.periodId)],
 );
+
+/** Competitor intelligence repository — time-series metrics absorbed from custodians/uploads. */
+export const competitorMetric = pgTable(
+  "competitor_metric",
+  {
+    id: serial("id").primaryKey(),
+    brandId: integer("brand_id").notNull().references(() => brand.id),
+    periodId: text("period_id").notNull().references(() => fiscalPeriod.id),
+    metric: text("metric")
+      .$type<"share" | "sov" | "share_of_search" | "price_index" | "digital_presence">()
+      .notNull(),
+    value: doublePrecision("value").notNull(),
+    unit: text("unit"),
+    source: text("source"),
+    isEstimate: boolean("is_estimate").notNull().default(false),
+    enteredBy: text("entered_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("competitor_metric_brand_period_metric_idx").on(t.brandId, t.periodId, t.metric)],
+);

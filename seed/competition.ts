@@ -2,7 +2,7 @@ import { config } from "dotenv";
 config({ path: ".env.local" });
 config({ path: ".env" });
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import * as schema from "@akij-mms/schema";
@@ -38,6 +38,30 @@ async function main() {
           updatedBy: "seed",
         });
         profiles++;
+      }
+    }
+
+    // Competitor intelligence repository — metric observations for ACCL (idempotent)
+    if (s.code === "ACCL") {
+      const compIds = comps.map((c) => c.id);
+      const haveMetrics = compIds.length
+        ? await db.select({ id: schema.competitorMetric.id }).from(schema.competitorMetric).where(inArray(schema.competitorMetric.brandId, compIds)).limit(1)
+        : [];
+      if (!haveMetrics.length) {
+        for (let i = 0; i < comps.length; i++) {
+          const specs: { m: "sov" | "share_of_search" | "price_index" | "digital_presence"; v: number; u: string }[] = [
+            { m: "sov", v: Math.round(8 * (1 + i * 0.15) * 10) / 10, u: "%" },
+            { m: "share_of_search", v: Math.round(6 * (1 + i * 0.15) * 10) / 10, u: "%" },
+            { m: "price_index", v: Math.round((100 + i * 2) * 10) / 10, u: "index" },
+            { m: "digital_presence", v: Math.round((2.5 + i * 0.4) * 10) / 10, u: "/5" },
+          ];
+          for (const sp of specs) {
+            await db.insert(schema.competitorMetric).values({
+              brandId: comps[i].id, periodId: "FY25-26", metric: sp.m, value: sp.v, unit: sp.u,
+              source: "seed (est.)", isEstimate: true, enteredBy: "seed",
+            });
+          }
+        }
       }
     }
 
