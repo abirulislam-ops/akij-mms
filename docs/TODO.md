@@ -7,8 +7,8 @@
 - [x] Write & approve `docs/MMS_Blueprint.md`
 
 ## Phase 1 — Foundation
-- [x] Monorepo scaffold (npm workspaces: packages/calc + root; apps/web, apps/api, packages/schema, packages/ui, seed pending)
-- [ ] DB schema + Drizzle migrations (Neon Postgres)
+- [x] Monorepo scaffold (npm workspaces: packages/calc + packages/schema; apps/web, apps/api, packages/ui, seed pending)
+- [x] DB schema + Drizzle migrations (31 tables applied to Neon Postgres)
 - [ ] Auth + RBAC (Neon Auth — Managed Better Auth, roles on API)
 - [x] Calc engine (`packages/calc`) + unit tests (23 passing)
 - [ ] Design system (`packages/ui`) — tokens + infographic components

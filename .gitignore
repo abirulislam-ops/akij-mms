@@ -38,6 +38,3 @@ Thumbs.db
 # Neon local state
 .neon
 .neon/
-
-# generated DB / migration artifacts
-drizzle/meta/
