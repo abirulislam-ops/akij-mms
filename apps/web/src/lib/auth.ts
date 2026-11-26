@@ -1,6 +1,10 @@
-import { createAuthClient } from "@neon/auth";
+import { createInternalNeonAuth } from "@neon/auth";
 
-export const authClient = createAuthClient(import.meta.env.VITE_NEON_AUTH_URL);
+// createInternalNeonAuth exposes BOTH the Better Auth client (`adapter`) and
+// the JWT access token getter (`getJWTToken`). The API verifies a JWT (not the
+// raw session token), so we must use getJWTToken() — not `adapter.token()`.
+const neonAuth = createInternalNeonAuth(import.meta.env.VITE_NEON_AUTH_URL);
+export const authClient = neonAuth.adapter;
 
 export type SessionUser = { id: string; email: string; name?: string };
 
@@ -12,8 +16,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 }
 
 export async function getToken(): Promise<string | null> {
-  const { data } = await authClient.token();
-  return data?.token ?? null;
+  return await neonAuth.getJWTToken();
 }
 
 export async function signOut(): Promise<void> {
