@@ -97,21 +97,23 @@ export function indexScore(
 ): Scored {
   const dims = INDEX_DIMENSIONS[index];
   let scoreSum = 0;
-  let measuredWeight = 0;
+  let measuredDimWeight = 0; // raw dimension weight of dimensions that have a score
   let totalWeight = 0;
+  let coverageWeight = 0; // coverage-adjusted weight, for the coverage metric
 
   for (const dim of dims) {
     const w = DIMENSION_WEIGHT[dim];
     totalWeight += w;
     const d = dimensionScores[dim];
+    coverageWeight += w * (d?.coverage ?? 0);
     if (d && d.score != null) {
       scoreSum += d.score * w;
-      measuredWeight += w * d.coverage;
+      measuredDimWeight += w;
     }
   }
 
-  const coverage = totalWeight > 0 ? measuredWeight / totalWeight : 0;
-  const score = measuredWeight > 0 ? scoreSum / measuredWeight : null;
+  const coverage = totalWeight > 0 ? coverageWeight / totalWeight : 0;
+  const score = measuredDimWeight > 0 ? scoreSum / measuredDimWeight : null;
   return { score, coverage };
 }
 

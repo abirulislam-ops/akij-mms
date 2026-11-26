@@ -146,6 +146,24 @@ describe("indices", () => {
     expect(bpi.score).toBeCloseTo(4);
     expect(bpi.coverage).toBeCloseTo(20 / 45);
   });
+
+  it("index score is NOT inflated when a dimension is only partially measured", () => {
+    // D6 has half its weight measured (coverage 0.5, score 4). BHI = D2+D3+D6.
+    const dimScores = {
+      d1: { score: null, coverage: 0 },
+      d2: { score: null, coverage: 0 },
+      d3: { score: null, coverage: 0 },
+      d4: { score: null, coverage: 0 },
+      d5: { score: null, coverage: 0 },
+      d6: { score: 4, coverage: 0.5 },
+      d7: { score: null, coverage: 0 },
+    };
+    const bhi = indexScore(dimScores, "BHI");
+    // score stays 4 (weighted by D6's full weight 5, not coverage-adjusted 2.5)
+    expect(bhi.score).toBeCloseTo(4);
+    // coverage = (5 × 0.5) / (15 + 10 + 5) = 2.5 / 30
+    expect(bhi.coverage).toBeCloseTo(2.5 / 30);
+  });
 });
 
 describe("groupScore", () => {

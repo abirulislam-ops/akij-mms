@@ -13,7 +13,7 @@
 - [x] Calc engine (`packages/calc`) + unit tests (23 passing)
 - [ ] Design system (`packages/ui`) — tokens + infographic components
 - [ ] Data Input Center (forms, Excel/CSV upload + validation + audit + rollback)
-- [ ] Seed: KPI library (7 dims / all KPIs) + CBDO framework + Cement (pilot migration with §8 fixes)
+- [x] Seed: KPI library (63 KPIs / 7 dims) + CBDO framework + 13 SBUs + fiscal periods + Cement (KPIs, targets, revenue, competitors, budget, maturity) — §8 fixes applied
 
 ## Phase 2 — SBU Brand Hub for all 13 SBUs
 - [ ] Generic hub driven by `sbu_id` (verify on Cement)
