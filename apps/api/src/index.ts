@@ -5,6 +5,8 @@ import { db, schema } from "./db.js";
 import { requireAuth, type AppVariables } from "./auth.js";
 import { getUserRoles, requireRole } from "./rbac.js";
 import { computeSbuIndices, getCockpit } from "./scores.js";
+import { validateKpiActuals, commitKpiActuals, kpiActualsTemplate } from "./upload.js";
+import { getFreshness } from "./freshness.js";
 
 const app = new Hono<{ Variables: AppVariables }>();
 
@@ -45,6 +47,29 @@ app.get("/api/sbus/:code", requireAuth(), async (c) => {
   if (!sbu) return c.json({ error: "Not found" }, 404);
   const indices = await computeSbuIndices(sbu.id);
   return c.json({ sbu: { code: sbu.code, name: sbu.name, category: sbu.category, custodian: sbu.custodian }, indices });
+});
+
+// Data Input Center: download the KPI-actual template.
+app.get("/api/templates/kpi-actuals", requireAuth(), (c) => c.text(kpiActualsTemplate(), 200, { "Content-Type": "text/csv" }));
+
+// Data Input Center: upload KPI actuals. Preview by default; commit with { commit: true }.
+app.post("/api/upload/kpi-actuals", requireAuth(), requireRole("BRAND_CUSTODIAN", "SBU_HEAD", "SPA"), async (c) => {
+  const body = (await c.req.json()) as { csv?: string; commit?: boolean };
+  const csv = body.csv ?? "";
+  const byUser = c.get("auth").email ?? "unknown";
+  const result = await validateKpiActuals(csv);
+  if (body.commit) {
+    const committed = result.valid.length
+      ? await commitKpiActuals(result.valid, byUser)
+      : { inserted: 0, updated: 0 };
+    return c.json({ ...result, committed });
+  }
+  return c.json(result);
+});
+
+// Data freshness board.
+app.get("/api/freshness", requireAuth(), async (c) => {
+  return c.json({ datasets: await getFreshness() });
 });
 
 export default app;
