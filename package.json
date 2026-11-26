@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit",
     "verify": "tsx scripts/verify.ts",
     "seed": "tsx seed/index.ts",
+    "seed:sbus": "tsx seed/sbus.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
