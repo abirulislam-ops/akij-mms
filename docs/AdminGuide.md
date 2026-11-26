@@ -75,6 +75,18 @@ Frontend: `VITE_NEON_AUTH_URL` in `apps/web/.env`.
 4. Point the API at the production Neon branch; run migrations + seeds once.
 5. Configure the ERP sync cron.
 
+### Live URLs (production)
+
+- **Web:** https://akij-mms-web.vercel.app
+- **API:** https://akij-mms-api.vercel.app
+- **Neon Auth trusted domain:** `https://akij-mms-web.vercel.app` (added via `neon neon-auth domain add`)
+
+### Deploy notes
+
+- The API is bundled to `apps/api/api/index.js` (esbuild `npm run bundle` in `apps/api`) so Vercel's `npm install` succeeds without the private `@akij-mms/*` workspace packages on npm. Re-run `npm run bundle` after changing API source, then `vercel deploy --prod`.
+- The web copies `packages/ui/src/tokens.css` into `apps/web/src/tokens.css` (import is relative) so the web has no workspace dependency either.
+- Vercel "Deployment Protection" (SSO) was disabled on both projects so the app is publicly reachable; re-enable if you want a login wall in front.
+
 ## Audit trail
 
 Every create/update/approve is written to `audit_log` (entity, before/after, by user, timestamp). View via `GET /api/sync/log` (revenue) or query the table directly.

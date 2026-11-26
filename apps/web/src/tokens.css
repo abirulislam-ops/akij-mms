@@ -1,0 +1,135 @@
+/* AKIJ MMS design tokens — navy/gold/blue/teal identity (CBDO framework). */
+:root {
+  /* chrome */
+  --navy: #0b1b33;
+  --navy-2: #0f2a47;
+  --gold: #c9a227;
+  --blue: #1f4e79;
+  --teal: #2e7d6b;
+
+  /* neutrals */
+  --bg: #f4f6fa;
+  --surface: #ffffff;
+  --line: #e6ebf2;
+  --ink: #15202b;
+  --muted: #5a6b7c;
+
+  /* RAG — status only */
+  --green: #1e6b3c;
+  --amber: #c87e1a;
+  --red: #a61c1c;
+
+  /* fixed index colours (BEI / BHI / BPI / Composite) */
+  --bei: #1f4e79;
+  --bhi: #2e7d6b;
+  --bpi: #c9a227;
+  --composite: #7a3b8f;
+
+  /* type */
+  --font-ui: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-bangla: "Noto Sans Bengali", "Hind Siliguri", var(--font-ui);
+
+  /* spacing + radius */
+  --r: 10px;
+  --r-lg: 14px;
+  --shadow: 0 1px 2px rgba(16, 42, 67, 0.08), 0 8px 24px rgba(16, 42, 67, 0.06);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-ui);
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* index colour helpers */
+.idx-bei { color: var(--bei); }
+.idx-bhi { color: var(--bhi); }
+.idx-bpi { color: var(--bpi); }
+.idx-composite { color: var(--composite); }
+
+/* RAG dot / pill */
+.rag { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 12px; }
+.rag::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
+.rag.green { color: var(--green); }
+.rag.amber { color: var(--amber); }
+.rag.red { color: var(--red); }
+.rag.grey { color: var(--muted); }
+
+/* tables */
+.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tbl th, .tbl td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+.tbl th { background: var(--navy-2); color: #fff; font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; }
+.tbl tr:nth-child(even) td { background: #fafbfd; }
+.tbl td.num, .tbl th.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* cards + layout */
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 18px; box-shadow: var(--shadow); }
+.card h3 { margin: 0 0 12px; font-size: 13px; font-weight: 800; }
+.grid { display: grid; gap: 16px; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 16px; box-shadow: var(--shadow); border-left: 4px solid var(--gold); }
+.kpi .v { font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }
+.kpi .l { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+/* topbar */
+.topbar { position: sticky; top: 0; z-index: 10; background: linear-gradient(90deg, var(--navy), var(--navy-2)); color: #fff; padding: 12px 24px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.topbar .brand { font-weight: 800; font-size: 15px; }
+.topbar .brand b { color: var(--gold); }
+.topbar .spacer { flex: 1; }
+
+/* buttons + inputs */
+.btn { border: 0; background: var(--navy); color: #fff; padding: 9px 16px; border-radius: 8px; font-weight: 700; font-size: 13px; cursor: pointer; }
+.btn.gold { background: var(--gold); color: var(--navy); }
+.btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+input, select { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; font-size: 13px; color: var(--ink); }
+
+/* badge */
+.badge { font-size: 9.5px; font-weight: 800; padding: 3px 8px; border-radius: 11px; white-space: nowrap; }
+.badge.High { background: #e4f2ea; color: var(--green); }
+.badge.Med { background: #fcf3e2; color: var(--amber); }
+.badge.Low { background: #fcebeb; color: var(--red); }
+.badge.Web { background: #e6f0fa; color: var(--blue); }
+.badge.Estimate { background: repeating-linear-gradient(45deg, #f2f2f2, #f2f2f2 4px, #e8e8e8 4px, #e8e8e8 8px); color: var(--muted); }
+
+/* tabs */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; overflow-x: auto; }
+.tabs .tab { border: 0; background: transparent; color: var(--muted); padding: 9px 14px; font-weight: 700; font-size: 13px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; }
+.tabs .tab.active { color: var(--navy); border-bottom-color: var(--gold); }
+.subtabs { display: flex; gap: 6px; margin-bottom: 12px; }
+.subtabs .sub { border: 1px solid var(--line); background: var(--surface); color: var(--muted); padding: 6px 12px; border-radius: 16px; font-weight: 700; font-size: 12px; cursor: pointer; }
+.subtabs .sub.active { background: var(--navy); color: #fff; border-color: var(--navy); }
+
+/* horizontal bars */
+.bar-row { display: grid; grid-template-columns: 150px 1fr 54px; align-items: center; gap: 10px; padding: 4px 0; font-size: 12px; }
+.bar-track { background: #edf1f6; border-radius: 6px; height: 10px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 6px; }
+.bar-val { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
+
+/* estimate striping for bars */
+.bar-fill.estimate { background: repeating-linear-gradient(45deg, #cfd6e0, #cfd6e0 5px, #bcc6d2 5px, #bcc6d2 10px) !important; }
+.muted-line { color: var(--muted); font-size: 12px; }
+.mono { font-variant-numeric: tabular-nums; }
+
+/* print: A4 landscape MD pack */
+@media print {
+  body { background: #fff; }
+  .topbar, .no-print, .tabs, .subtabs { display: none !important; }
+  .card { box-shadow: none; border: 1px solid #ccc; }
+  @page { size: A4 landscape; margin: 12mm; }
+}
+
+/* accessibility: visible keyboard focus + reduced-motion */
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.skip-link { position: absolute; left: -9999px; top: 0; z-index: 100; }
+.skip-link:focus { left: 8px; top: 8px; background: var(--gold); color: var(--navy); padding: 8px 12px; border-radius: 6px; font-weight: 700; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}

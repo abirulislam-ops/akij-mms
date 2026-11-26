@@ -107,6 +107,11 @@ Open **http://localhost:5173** and sign in with any email + password (Neon Auth)
 - `docs/AdminGuide.md` — RBAC, approvals, data management, ERP sync
 - `docs/DataUpdateSOP.md` — standard operating procedure for updating data
 
+## Live (production)
+
+- Web: https://akij-mms-web.vercel.app
+- API: https://akij-mms-api.vercel.app
+
 ## Scope
 
 13 SBUs (Brand Marketing Pack FY 2026-27, Mediquip excluded): ACCL, AIL, ARMCL, AEL, AAFL, ALEL, ABSL, AAIL, ACEL, AASL, NJL, ALCL, AMPL.

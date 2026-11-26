@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import App from "./App";
-import "@akij-mms/ui/tokens.css";
+import "./tokens.css";
 
 const queryClient = new QueryClient();
 
