@@ -7,10 +7,10 @@
 - [x] Write & approve `docs/MMS_Blueprint.md`
 
 ## Phase 1 — Foundation
-- [ ] Monorepo scaffold (npm workspaces: apps/web, apps/api, packages/calc, packages/schema, packages/ui, seed)
-- [ ] DB schema + Drizzle migrations (Postgres/Neon)
-- [ ] Auth + RBAC (Auth.js email-OTP, roles on API)
-- [ ] Calc engine (`packages/calc`) + unit tests
+- [x] Monorepo scaffold (npm workspaces: packages/calc + root; apps/web, apps/api, packages/schema, packages/ui, seed pending)
+- [ ] DB schema + Drizzle migrations (Neon Postgres)
+- [ ] Auth + RBAC (Neon Auth — Managed Better Auth, roles on API)
+- [x] Calc engine (`packages/calc`) + unit tests (23 passing)
 - [ ] Design system (`packages/ui`) — tokens + infographic components
 - [ ] Data Input Center (forms, Excel/CSV upload + validation + audit + rollback)
 - [ ] Seed: KPI library (7 dims / all KPIs) + CBDO framework + Cement (pilot migration with §8 fixes)
